@@ -131,6 +131,10 @@ export default function LiveGamePage() {
     }
 
     fetchData()
+  }, [sessionId])
+
+  useEffect(() => {
+    if (!sessionId) return
 
     // Subscribe to player score updates and answers
     const supabase = createClient()
