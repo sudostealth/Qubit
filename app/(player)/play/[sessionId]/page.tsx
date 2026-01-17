@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Timer, Trophy, Loader2 } from 'lucide-react'
+import { Timer, Trophy, Loader2, CheckCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { calculatePoints } from '@/lib/utils/scoring'
 
@@ -41,6 +41,10 @@ export default function PlayPage() {
   const [pointsEarned, setPointsEarned] = useState(0)
   const [loading, setLoading] = useState(true)
   const [waitingForNext, setWaitingForNext] = useState(false)
+  const [showStats, setShowStats] = useState(false)
+  const [showLeaderboard, setShowLeaderboard] = useState(false)
+  const [answerStats, setAnswerStats] = useState<number[]>([])
+  const [leaderboard, setLeaderboard] = useState<any[]>([])
 
   useEffect(() => {
     if (!sessionId || !playerId) return
@@ -58,11 +62,22 @@ export default function PlayPage() {
         setAnswered(false)
         setShowFeedback(false)
         setWaitingForNext(false)
+        setShowStats(false)
         setLoading(false)
       })
       .on('broadcast', { event: 'question:hide' }, () => {
         setShowFeedback(true)
         setWaitingForNext(true)
+      })
+      .on('broadcast', { event: 'stats:show' }, (payload: any) => {
+        setAnswerStats(payload.payload.stats)
+        setShowStats(true)
+        setWaitingForNext(true)
+      })
+      .on('broadcast', { event: 'leaderboard:show' }, () => {
+        setShowStats(false)
+        setShowLeaderboard(true)
+        fetchLeaderboard()
       })
       .on('broadcast', { event: 'timer:tick' }, (payload: any) => {
         setTimeLeft(payload.payload.timeLeft)
@@ -76,6 +91,21 @@ export default function PlayPage() {
       supabase.removeChannel(gameChannel)
     }
   }, [sessionId, playerId, router])
+
+  const fetchLeaderboard = async () => {
+    const supabase = createClient()
+    const { data: players } = await supabase
+      .from('players')
+      .select('*')
+      .eq('session_id', sessionId)
+      .eq('is_active', true)
+      .order('score', { ascending: false })
+      .limit(10)
+
+    if (players) {
+      setLeaderboard(players)
+    }
+  }
 
   // Timer countdown
   useEffect(() => {
@@ -152,6 +182,55 @@ export default function PlayPage() {
   }
 
   if (waitingForNext) {
+    if (showLeaderboard) {
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-secondary-50 px-4 py-8">
+          <div className="max-w-md mx-auto">
+             <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="card"
+             >
+                <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2 justify-center">
+                  <Trophy className="w-6 h-6 text-yellow-500" />
+                  Leaderboard
+                </h2>
+
+                <div className="space-y-2">
+                  <AnimatePresence>
+                  {leaderboard.map((player, index) => {
+                    const isMe = player.id === playerId
+                    return (
+                      <motion.div
+                        layout
+                        key={player.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.5 }}
+                        className={`flex items-center gap-4 p-3 rounded-lg border-2 ${
+                          isMe ? 'border-primary-500 bg-primary-50' : 'border-gray-100 bg-white'
+                        }`}
+                      >
+                        <span className="text-xl font-bold text-gray-400 w-8">
+                          #{index + 1}
+                        </span>
+                        <span className={`flex-1 font-bold ${isMe ? 'text-primary-900' : 'text-gray-900'}`}>
+                          {player.nickname} {isMe && '(You)'}
+                        </span>
+                        <span className="text-lg font-bold text-primary-600">
+                          {player.score}
+                        </span>
+                      </motion.div>
+                    )
+                  })}
+                  </AnimatePresence>
+                </div>
+             </motion.div>
+          </div>
+        </div>
+      )
+    }
+
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 via-white to-secondary-50 px-4">
         <motion.div
@@ -186,25 +265,59 @@ export default function PlayPage() {
             </p>
           )}
           
-          <p className="text-gray-600">Waiting for next question...</p>
-          
-          <div className="flex items-center justify-center gap-2 mt-6">
-            <motion.div
-              animate={{ scale: [1, 1.2, 1] }}
-              transition={{ duration: 1.5, repeat: Infinity }}
-              className="w-3 h-3 rounded-full bg-primary-500"
-            />
-            <motion.div
-              animate={{ scale: [1, 1.2, 1] }}
-              transition={{ duration: 1.5, repeat: Infinity, delay: 0.2 }}
-              className="w-3 h-3 rounded-full bg-primary-500"
-            />
-            <motion.div
-              animate={{ scale: [1, 1.2, 1] }}
-              transition={{ duration: 1.5, repeat: Infinity, delay: 0.4 }}
-              className="w-3 h-3 rounded-full bg-primary-500"
-            />
-          </div>
+          {!showStats ? (
+            <>
+              <p className="text-gray-600">Waiting for next question...</p>
+
+              <div className="flex items-center justify-center gap-2 mt-6">
+                <motion.div
+                  animate={{ scale: [1, 1.2, 1] }}
+                  transition={{ duration: 1.5, repeat: Infinity }}
+                  className="w-3 h-3 rounded-full bg-primary-500"
+                />
+                <motion.div
+                  animate={{ scale: [1, 1.2, 1] }}
+                  transition={{ duration: 1.5, repeat: Infinity, delay: 0.2 }}
+                  className="w-3 h-3 rounded-full bg-primary-500"
+                />
+                <motion.div
+                  animate={{ scale: [1, 1.2, 1] }}
+                  transition={{ duration: 1.5, repeat: Infinity, delay: 0.4 }}
+                  className="w-3 h-3 rounded-full bg-primary-500"
+                />
+              </div>
+            </>
+          ) : (
+             <div className="mt-8 text-left w-full">
+                <h3 className="text-xl font-bold mb-4">Results</h3>
+                <div className="space-y-3">
+                  {currentQuestion?.options.map((option, index) => {
+                    const count = answerStats[index] || 0
+                    const total = answerStats.reduce((a, b) => a + b, 0) || 1
+                    const percentage = Math.round((count / total) * 100)
+                    const isCorrect = (currentQuestion as any).correct_answer === index
+
+                    return (
+                      <div key={index} className={`relative p-3 rounded-lg border overflow-hidden ${
+                        isCorrect ? 'border-green-500 bg-green-50' : 'border-gray-200 bg-gray-50'
+                      }`}>
+                         <div
+                            className={`absolute inset-0 opacity-20 transition-all duration-1000 ${isCorrect ? 'bg-green-500' : 'bg-gray-400'}`}
+                            style={{ width: `${percentage}%` }}
+                         />
+                         <div className="relative flex justify-between items-center z-10 text-sm">
+                            <span className="font-semibold">{option}</span>
+                            <div className="flex items-center gap-2">
+                                <span>{count}</span>
+                                {isCorrect && <CheckCircle className="text-green-600 w-4 h-4" />}
+                            </div>
+                         </div>
+                      </div>
+                    )
+                  })}
+                </div>
+             </div>
+          )}
         </motion.div>
       </div>
     )

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Play, SkipForward, Trophy, Users, Eye, EyeOff, X } from 'lucide-react'
+import { Play, SkipForward, Trophy, Users, Eye, EyeOff, X, BarChart2, CheckCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { getAvatarUrl, type AvatarStyle } from '@/lib/utils/avatar'
 import Image from 'next/image'
@@ -35,6 +35,8 @@ export default function LiveGamePage() {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
   const [players, setPlayers] = useState<Player[]>([])
   const [showLeaderboard, setShowLeaderboard] = useState(false)
+  const [showStats, setShowStats] = useState(false)
+  const [answerStats, setAnswerStats] = useState<number[]>([])
   const [timeLeft, setTimeLeft] = useState(0)
   const [questionActive, setQuestionActive] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -156,15 +158,42 @@ export default function LiveGamePage() {
   const handleHideQuestion = async () => {
     setQuestionActive(false)
 
-    // Broadcast hide event
+    const supabase = createClient()
+
+    // Fetch stats
+    const { data: answers } = await supabase
+      .from('player_answers')
+      .select('answer_index')
+      .eq('question_id', questions[currentQuestionIndex].id)
+
+    const stats = new Array(questions[currentQuestionIndex].options.length).fill(0)
+    answers?.forEach((a: any) => {
+      if (a.answer_index >= 0 && a.answer_index < stats.length) {
+        stats[a.answer_index]++
+      }
+    })
+    setAnswerStats(stats)
+
+    // Broadcast stats
+    await supabase.channel(`game:${sessionId}`).send({
+      type: 'broadcast',
+      event: 'stats:show',
+      payload: { stats }
+    })
+
+    // Show stats
+    setShowStats(true)
+  }
+
+  const handleShowLeaderboard = async () => {
+    setShowStats(false)
+    setShowLeaderboard(true)
+
     const supabase = createClient()
     await supabase.channel(`game:${sessionId}`).send({
       type: 'broadcast',
-      event: 'question:hide',
+      event: 'leaderboard:show'
     })
-
-    // Show leaderboard
-    setShowLeaderboard(true)
   }
 
   const handleNextQuestion = () => {
@@ -247,7 +276,7 @@ export default function LiveGamePage() {
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
             {/* Question Display */}
-            {currentQuestion && !showLeaderboard && (
+            {currentQuestion && !showLeaderboard && !showStats && (
               <div className="card">
                 <h2 className="text-3xl font-bold text-gray-900 mb-6">
                   {currentQuestion.text}
@@ -257,16 +286,9 @@ export default function LiveGamePage() {
                   {currentQuestion.options.map((option, index) => (
                     <div
                       key={index}
-                      className={`p-4 rounded-lg font-bold text-lg ${
-                        currentQuestion.correct_answer === index
-                          ? 'bg-green-100 border-2 border-green-500'
-                          : 'bg-gray-100'
-                      }`}
+                      className="p-4 rounded-lg font-bold text-lg bg-gray-100"
                     >
                       {option}
-                      {currentQuestion.correct_answer === index && (
-                        <span className="ml-2 text-green-600">✓</span>
-                      )}
                     </div>
                   ))}
                 </div>
@@ -274,6 +296,42 @@ export default function LiveGamePage() {
                 <div className="flex items-center justify-between text-sm text-gray-600">
                   <span>Time Limit: {currentQuestion.time_limit}s</span>
                   <span>Points: {currentQuestion.points}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Stats Display */}
+            {showStats && currentQuestion && (
+              <div className="card">
+                <h2 className="text-3xl font-bold text-gray-900 mb-6">
+                  Answer Breakdown
+                </h2>
+                <div className="space-y-4">
+                  {currentQuestion.options.map((option, index) => {
+                    const count = answerStats[index] || 0
+                    const total = answerStats.reduce((a, b) => a + b, 0) || 1
+                    const percentage = Math.round((count / total) * 100)
+                    const isCorrect = currentQuestion.correct_answer === index
+
+                    return (
+                      <div key={index} className={`relative p-4 rounded-lg border-2 overflow-hidden ${
+                        isCorrect ? 'border-green-500 bg-green-50' : 'border-gray-200 bg-gray-50'
+                      }`}>
+                         {/* Progress Bar Background */}
+                         <div
+                            className={`absolute inset-0 opacity-20 transition-all duration-1000 ${isCorrect ? 'bg-green-500' : 'bg-gray-400'}`}
+                            style={{ width: `${percentage}%` }}
+                         />
+                         <div className="relative flex justify-between items-center z-10">
+                            <span className="font-bold text-lg">{option}</span>
+                            <div className="flex items-center gap-4">
+                                <span className="font-bold">{count} picks</span>
+                                {isCorrect && <CheckCircle className="text-green-600 w-6 h-6" />}
+                            </div>
+                         </div>
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
             )}
@@ -331,7 +389,7 @@ export default function LiveGamePage() {
             {/* Controls */}
             <div className="card">
               <div className="flex gap-4">
-                {!questionActive && !showLeaderboard && currentQuestionIndex < questions.length && (
+                {!questionActive && !showLeaderboard && !showStats && currentQuestionIndex < questions.length && (
                   <button
                     onClick={handleShowQuestion}
                     className="btn btn-primary flex-1 flex items-center justify-center gap-2"
@@ -347,7 +405,17 @@ export default function LiveGamePage() {
                     className="btn btn-secondary flex-1 flex items-center justify-center gap-2"
                   >
                     <EyeOff className="w-5 h-5" />
-                    Hide Question
+                    Hide Question & Show Stats
+                  </button>
+                )}
+
+                {showStats && (
+                  <button
+                    onClick={handleShowLeaderboard}
+                    className="btn btn-primary flex-1 flex items-center justify-center gap-2"
+                  >
+                    <Trophy className="w-5 h-5" />
+                    Show Leaderboard
                   </button>
                 )}
 

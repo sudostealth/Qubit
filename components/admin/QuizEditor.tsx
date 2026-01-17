@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Trash2, GripVertical, Image as ImageIcon, Save, ArrowLeft } from 'lucide-react'
+import { Plus, Trash2, GripVertical, Image as ImageIcon, Save, ArrowLeft, CheckCircle } from 'lucide-react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import type { QuestionType } from '@/lib/types/game.types'
@@ -469,20 +469,31 @@ export default function QuizEditor({ initialQuiz, initialQuestions = [] }: QuizE
                       </label>
                       <div className="space-y-2">
                         {question.options.map((option, optionIndex) => (
-                          <div key={optionIndex} className="flex items-center gap-2">
-                            <input
-                              type="radio"
-                              name={`correct-${question.id}`}
-                              checked={question.correct_answer === optionIndex}
-                              onChange={() => updateQuestion(index, { correct_answer: optionIndex })}
+                          <div key={optionIndex} className="flex items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => updateQuestion(index, { correct_answer: optionIndex })}
                               disabled={question.type === 'poll'}
-                              className="w-4 h-4 text-primary-600"
-                            />
+                              className={`flex-shrink-0 px-3 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${
+                                question.correct_answer === optionIndex
+                                  ? 'bg-green-600 text-white ring-2 ring-green-600 ring-offset-1'
+                                  : 'bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700'
+                              }`}
+                              title={question.correct_answer === optionIndex ? 'Correct Answer' : 'Mark as Correct'}
+                            >
+                              <CheckCircle className={`w-4 h-4 ${question.correct_answer === optionIndex ? 'fill-current' : ''}`} />
+                              <span className="hidden sm:inline">
+                                {question.correct_answer === optionIndex ? 'Correct' : 'Mark Correct'}
+                              </span>
+                            </button>
+
                             <input
                               type="text"
                               value={option}
                               onChange={(e) => updateOption(index, optionIndex, e.target.value)}
-                              className="input flex-1"
+                              className={`input flex-1 transition-colors ${
+                                question.correct_answer === optionIndex ? 'border-green-500 bg-green-50' : ''
+                              }`}
                               placeholder={`Option ${optionIndex + 1}`}
                               required
                             />
