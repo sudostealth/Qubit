@@ -70,6 +70,14 @@ export default function QuizCard({ quiz }: QuizCardProps) {
         }
       }
 
+      // Clean up old waiting/active sessions for this quiz to ensure fresh start
+      // This prevents confusion if an admin accidentally left a previous session running
+      await supabase
+        .from('game_sessions')
+        .delete()
+        .eq('quiz_id', quiz.id)
+        .in('status', ['waiting', 'active'])
+
       // Create game session
       const { data: session, error } = await supabase
         .from('game_sessions')
