@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Play, Loader2 } from 'lucide-react'
+import { Play, Loader2, Trash2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { generatePin } from '@/lib/utils/pin-generator'
 
@@ -19,6 +19,32 @@ interface QuizCardProps {
 export default function QuizCard({ quiz }: QuizCardProps) {
   const router = useRouter()
   const [starting, setStarting] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
+  const handleDelete = async () => {
+    if (!confirm('Are you sure you want to delete this quiz? All related data (questions, sessions, players) will be permanently removed.')) {
+      return
+    }
+
+    setDeleting(true)
+    const supabase = createClient()
+
+    try {
+      const { error } = await supabase
+        .from('quizzes')
+        .delete()
+        .eq('id', quiz.id)
+
+      if (error) throw error
+
+      router.refresh()
+    } catch (err) {
+      console.error('Error deleting quiz:', err)
+      alert('Failed to delete quiz')
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   const handleStartGame = async () => {
     setStarting(true)
@@ -74,17 +100,31 @@ export default function QuizCard({ quiz }: QuizCardProps) {
       <p className="text-sm text-gray-600 mb-4 line-clamp-2">
         {quiz.description || 'No description'}
       </p>
-      <div className="flex gap-2">
-        <Link
-          href={`/quiz/edit/${quiz.id}`}
-          className="btn btn-secondary text-sm flex-1"
-        >
-          Edit
-        </Link>
+      <div className="flex flex-col gap-2">
+        <div className="flex gap-2">
+          <Link
+            href={`/quiz/edit/${quiz.id}`}
+            className="btn btn-secondary text-sm flex-1 text-center"
+          >
+            Edit
+          </Link>
+          <button
+            onClick={handleDelete}
+            disabled={deleting}
+            className="btn bg-red-100 text-red-600 hover:bg-red-200 text-sm px-4"
+            title="Delete Quiz"
+          >
+            {deleting ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Trash2 className="w-4 h-4" />
+            )}
+          </button>
+        </div>
         <button
           onClick={handleStartGame}
           disabled={starting}
-          className="btn btn-primary text-sm flex-1 flex items-center justify-center gap-2"
+          className="btn btn-primary text-sm w-full flex items-center justify-center gap-2"
         >
           {starting ? (
             <>

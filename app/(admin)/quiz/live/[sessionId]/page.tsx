@@ -41,6 +41,7 @@ export default function LiveGamePage() {
   const [questionActive, setQuestionActive] = useState(false)
   const [loading, setLoading] = useState(true)
   const [quizTitle, setQuizTitle] = useState('')
+  const [viewState, setViewState] = useState<'PREVIEW' | 'ACTIVE' | 'STATS' | 'LEADERBOARD'>('PREVIEW')
 
   useEffect(() => {
     if (!sessionId) return
@@ -61,7 +62,50 @@ export default function LiveGamePage() {
           (a: any, b: any) => a.question_order - b.question_order
         )
         setQuestions(sortedQuestions)
-        setCurrentQuestionIndex(session.current_question_index || 0)
+
+        // Handle Resume State
+        const currentIndex = session.current_question_index || 0
+        setCurrentQuestionIndex(currentIndex)
+
+        if (session.current_question_start_time) {
+          const currentQ = sortedQuestions[currentIndex]
+          if (currentQ) {
+            const startTime = new Date(session.current_question_start_time).getTime()
+            const now = Date.now()
+            const elapsed = Math.floor((now - startTime) / 1000)
+            const remaining = currentQ.time_limit - elapsed
+
+            if (remaining > 0) {
+              // Question is active
+              setViewState('ACTIVE')
+              setTimeLeft(remaining)
+              setQuestionActive(true)
+            } else {
+              // Question finished but not closed? Or waiting for stats?
+              // If time is up, we should show stats
+              setViewState('STATS')
+              setQuestionActive(false)
+              setTimeLeft(0)
+
+              // We need to fetch stats here if we are resuming into STATS
+              const { data: answers } = await supabase
+                .from('player_answers')
+                .select('answer_index')
+                .eq('question_id', currentQ.id)
+
+              if (answers) {
+                const stats = new Array(currentQ.options.length).fill(0)
+                answers.forEach((a: any) => {
+                  if (a.answer_index >= 0 && a.answer_index < stats.length) {
+                    stats[a.answer_index]++
+                  }
+                })
+                setAnswerStats(stats)
+                setShowStats(true)
+              }
+            }
+          }
+        }
       }
 
       // Get players
@@ -81,9 +125,9 @@ export default function LiveGamePage() {
 
     fetchData()
 
-    // Subscribe to player score updates
+    // Subscribe to player score updates and answers
     const supabase = createClient()
-    const playersChannel = supabase
+    const gameChannel = supabase
       .channel(`live:${sessionId}`)
       .on(
         'postgres_changes',
@@ -101,12 +145,34 @@ export default function LiveGamePage() {
           )
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'player_answers',
+          filter: `question_id=eq.${questions[currentQuestionIndex]?.id}`,
+        },
+        (payload) => {
+          // Update live stats
+          if (viewState === 'ACTIVE') {
+            const answer = payload.new
+            setAnswerStats((prev) => {
+              const newStats = [...prev]
+              if (answer.answer_index >= 0) {
+                newStats[answer.answer_index] = (newStats[answer.answer_index] || 0) + 1
+              }
+              return newStats
+            })
+          }
+        }
+      )
       .subscribe()
 
     return () => {
-      supabase.removeChannel(playersChannel)
+      supabase.removeChannel(gameChannel)
     }
-  }, [sessionId])
+  }, [sessionId, currentQuestionIndex, questions, viewState])
 
   // Timer countdown
   useEffect(() => {
@@ -136,6 +202,9 @@ export default function LiveGamePage() {
     const question = questions[currentQuestionIndex]
     setTimeLeft(question.time_limit)
     setQuestionActive(true)
+    setViewState('ACTIVE')
+    // Initialize stats for current question
+    setAnswerStats(new Array(question.options.length).fill(0))
 
     // Broadcast question to all players
     const supabase = createClient()
@@ -148,10 +217,13 @@ export default function LiveGamePage() {
       },
     })
 
-    // Update session
+    // Update session with start time for resume capability
     await supabase
       .from('game_sessions')
-      .update({ current_question_index: currentQuestionIndex })
+      .update({
+        current_question_index: currentQuestionIndex,
+        current_question_start_time: new Date().toISOString()
+      })
       .eq('id', sessionId)
   }
 
@@ -160,7 +232,7 @@ export default function LiveGamePage() {
 
     const supabase = createClient()
 
-    // Fetch stats
+    // Fetch final stats to be sure
     const { data: answers } = await supabase
       .from('player_answers')
       .select('answer_index')
@@ -183,11 +255,13 @@ export default function LiveGamePage() {
 
     // Show stats
     setShowStats(true)
+    setViewState('STATS')
   }
 
   const handleShowLeaderboard = async () => {
     setShowStats(false)
     setShowLeaderboard(true)
+    setViewState('LEADERBOARD')
 
     const supabase = createClient()
     await supabase.channel(`game:${sessionId}`).send({
@@ -198,6 +272,7 @@ export default function LiveGamePage() {
 
   const handleNextQuestion = () => {
     setShowLeaderboard(false)
+    setViewState('PREVIEW')
     setCurrentQuestionIndex(currentQuestionIndex + 1)
   }
 
@@ -274,34 +349,76 @@ export default function LiveGamePage() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Main Content */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className={`${viewState === 'ACTIVE' ? 'lg:col-span-3' : 'lg:col-span-2'} space-y-6`}>
             {/* Question Display */}
-            {currentQuestion && !showLeaderboard && !showStats && (
-              <div className="card">
-                <h2 className="text-3xl font-bold text-gray-900 mb-6">
-                  {currentQuestion.text}
+            {currentQuestion && viewState === 'PREVIEW' && (
+              <div className="card text-center py-12">
+                <h2 className="text-3xl font-bold text-gray-900 mb-4">
+                  Question {currentQuestionIndex + 1}
                 </h2>
-
-                <div className="grid grid-cols-2 gap-4 mb-6">
-                  {currentQuestion.options.map((option, index) => (
-                    <div
-                      key={index}
-                      className="p-4 rounded-lg font-bold text-lg bg-gray-100"
-                    >
-                      {option}
-                    </div>
-                  ))}
+                <div className="text-xl text-gray-600 mb-8">
+                  {currentQuestion.text}
                 </div>
-
-                <div className="flex items-center justify-between text-sm text-gray-600">
-                  <span>Time Limit: {currentQuestion.time_limit}s</span>
-                  <span>Points: {currentQuestion.points}</span>
+                <div className="flex justify-center">
+                  <div className="bg-blue-50 text-blue-700 px-6 py-3 rounded-full font-bold">
+                    Wait for players to get ready...
+                  </div>
                 </div>
               </div>
             )}
 
-            {/* Stats Display */}
-            {showStats && currentQuestion && (
+            {currentQuestion && viewState === 'ACTIVE' && (
+              <div className="grid md:grid-cols-2 gap-6">
+                <div className="card">
+                  <h2 className="text-2xl font-bold text-gray-900 mb-6">
+                    {currentQuestion.text}
+                  </h2>
+                  <div className="space-y-3">
+                    {currentQuestion.options.map((option, index) => (
+                      <div
+                        key={index}
+                        className="p-4 rounded-lg font-bold text-lg bg-gray-100 border border-gray-200"
+                      >
+                        {option}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Live Stats */}
+                <div className="card">
+                  <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                    <BarChart2 className="w-5 h-5" />
+                    Live Responses
+                  </h3>
+                  <div className="h-full flex flex-col justify-center space-y-4">
+                     {currentQuestion.options.map((option, index) => {
+                        const count = answerStats[index] || 0
+                        const total = answerStats.reduce((a, b) => a + b, 0) || 1
+                        const percentage = Math.round((count / total) * 100)
+
+                        return (
+                          <div key={index} className="space-y-1">
+                            <div className="flex justify-between text-sm font-medium">
+                              <span className="truncate max-w-[200px]">{option}</span>
+                              <span>{count}</span>
+                            </div>
+                            <div className="h-4 bg-gray-100 rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-primary-500 transition-all duration-500 ease-out"
+                                style={{ width: `${percentage}%` }}
+                              />
+                            </div>
+                          </div>
+                        )
+                     })}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Stats Display (Results) */}
+            {viewState === 'STATS' && currentQuestion && (
               <div className="card">
                 <h2 className="text-3xl font-bold text-gray-900 mb-6">
                   Answer Breakdown
@@ -389,7 +506,7 @@ export default function LiveGamePage() {
             {/* Controls */}
             <div className="card">
               <div className="flex gap-4">
-                {!questionActive && !showLeaderboard && !showStats && currentQuestionIndex < questions.length && (
+                {viewState === 'PREVIEW' && currentQuestionIndex < questions.length && (
                   <button
                     onClick={handleShowQuestion}
                     className="btn btn-primary flex-1 flex items-center justify-center gap-2"
@@ -399,7 +516,7 @@ export default function LiveGamePage() {
                   </button>
                 )}
 
-                {questionActive && (
+                {viewState === 'ACTIVE' && (
                   <button
                     onClick={handleHideQuestion}
                     className="btn btn-secondary flex-1 flex items-center justify-center gap-2"
@@ -409,7 +526,7 @@ export default function LiveGamePage() {
                   </button>
                 )}
 
-                {showStats && (
+                {viewState === 'STATS' && (
                   <button
                     onClick={handleShowLeaderboard}
                     className="btn btn-primary flex-1 flex items-center justify-center gap-2"
@@ -419,7 +536,7 @@ export default function LiveGamePage() {
                   </button>
                 )}
 
-                {showLeaderboard && !isLastQuestion && (
+                {viewState === 'LEADERBOARD' && !isLastQuestion && (
                   <button
                     onClick={handleNextQuestion}
                     className="btn btn-primary flex-1 flex items-center justify-center gap-2"
@@ -429,7 +546,7 @@ export default function LiveGamePage() {
                   </button>
                 )}
 
-                {showLeaderboard && isLastQuestion && (
+                {viewState === 'LEADERBOARD' && isLastQuestion && (
                   <button
                     onClick={handleEndGame}
                     className="btn btn-primary flex-1 flex items-center justify-center gap-2"
@@ -443,47 +560,49 @@ export default function LiveGamePage() {
           </div>
 
           {/* Sidebar - Live Players */}
-          <div className="lg:col-span-1">
-            <div className="card sticky top-4">
-              <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                <Users className="w-5 h-5" />
-                Live Players ({players.length})
-              </h3>
+          {viewState !== 'ACTIVE' && (
+            <div className="lg:col-span-1">
+              <div className="card sticky top-4">
+                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                  <Users className="w-5 h-5" />
+                  Live Players ({players.length})
+                </h3>
 
-              <div className="space-y-2 max-h-[600px] overflow-y-auto">
-                {players.map((player) => {
-                  const { style, seed } = parseAvatarSeed(player.avatar_seed)
-                  const avatarUrl = getAvatarUrl(seed, style)
+                <div className="space-y-2 max-h-[600px] overflow-y-auto">
+                  {players.map((player) => {
+                    const { style, seed } = parseAvatarSeed(player.avatar_seed)
+                    const avatarUrl = getAvatarUrl(seed, style)
 
-                  return (
-                    <div
-                      key={player.id}
-                      className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg"
-                    >
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-100 to-secondary-100 p-1">
-                        <div className="w-full h-full rounded-full bg-white overflow-hidden">
-                          <Image
-                            src={avatarUrl}
-                            alt={player.nickname}
-                            width={40}
-                            height={40}
-                            className="w-full h-full"
-                            unoptimized
-                          />
+                    return (
+                      <div
+                        key={player.id}
+                        className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg"
+                      >
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-100 to-secondary-100 p-1">
+                          <div className="w-full h-full rounded-full bg-white overflow-hidden">
+                            <Image
+                              src={avatarUrl}
+                              alt={player.nickname}
+                              width={40}
+                              height={40}
+                              className="w-full h-full"
+                              unoptimized
+                            />
+                          </div>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-gray-900 truncate text-sm">
+                            {player.nickname}
+                          </p>
+                          <p className="text-xs text-gray-500">{player.score} pts</p>
                         </div>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-gray-900 truncate text-sm">
-                          {player.nickname}
-                        </p>
-                        <p className="text-xs text-gray-500">{player.score} pts</p>
-                      </div>
-                    </div>
-                  )
-                })}
+                    )
+                  })}
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
       </main>
     </div>

@@ -3,9 +3,10 @@
 import { useEffect, useState } from 'react'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Timer, Trophy, Loader2, CheckCircle } from 'lucide-react'
+import { Timer, Trophy, Loader2, CheckCircle, Check } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { calculatePoints } from '@/lib/utils/scoring'
+import { usePlayerPresence } from '@/hooks/usePlayerPresence'
 
 interface Question {
   id: string
@@ -31,6 +32,9 @@ export default function PlayPage() {
   const sessionId = params.sessionId as string
   const playerId = searchParams.get('playerId')
 
+  // Enable heartbeat
+  usePlayerPresence(playerId)
+
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null)
   const [questionIndex, setQuestionIndex] = useState(0)
   const [timeLeft, setTimeLeft] = useState(0)
@@ -50,6 +54,66 @@ export default function PlayPage() {
     if (!sessionId || !playerId) return
 
     const supabase = createClient()
+
+    // Fetch current state on mount (for resume capability)
+    const fetchCurrentState = async () => {
+      const { data: session } = await supabase
+        .from('game_sessions')
+        .select('*, quizzes(questions(*))')
+        .eq('id', sessionId)
+        .single()
+
+      if (session) {
+        // Resume question if active
+        if (session.current_question_start_time) {
+           const questions = session.quizzes.questions.sort((a: any, b: any) => a.question_order - b.question_order)
+           const question = questions[session.current_question_index]
+
+           if (question) {
+              const startTime = new Date(session.current_question_start_time).getTime()
+              const now = Date.now()
+              const elapsed = Math.floor((now - startTime) / 1000)
+              const remaining = question.time_limit - elapsed
+
+              if (remaining > 0) {
+                 setCurrentQuestion(question)
+                 setQuestionIndex(session.current_question_index)
+                 setTimeLeft(remaining)
+                 setLoading(false)
+
+                 // Check if already answered
+                 const { data: answer } = await supabase
+                   .from('player_answers')
+                   .select('*')
+                   .eq('player_id', playerId)
+                   .eq('question_id', question.id)
+                   .single()
+
+                 if (answer) {
+                   setSelectedAnswer(answer.answer_index)
+                   setAnswered(true)
+                   setPointsEarned(answer.points_earned)
+                   setIsCorrect(answer.is_correct)
+                   // Don't show feedback yet, wait for timer/event
+                 }
+              } else {
+                 // Question timer expired, wait for next
+                 setCurrentQuestion(question)
+                 setQuestionIndex(session.current_question_index)
+                 setTimeLeft(0)
+                 setWaitingForNext(true)
+                 setLoading(false)
+              }
+           }
+        } else if (session.status === 'finished') {
+          router.push(`/results/${sessionId}?playerId=${playerId}`)
+        } else {
+           setLoading(false)
+        }
+      }
+    }
+
+    fetchCurrentState()
 
     // Subscribe to game events
     const gameChannel = supabase
@@ -396,11 +460,14 @@ export default function PlayPage() {
                     whileTap={!answered ? { scale: 0.95 } : {}}
                     onClick={() => !answered && handleAnswer(index)}
                     disabled={answered}
-                    className={`answer-btn ${colors.bg} ${!answered ? colors.hover : ''} ${
-                      isSelected ? `ring-4 ${colors.ring}` : ''
-                    } ${answered ? 'opacity-75 cursor-not-allowed' : ''}`}
+                    className={`answer-btn relative ${colors.bg} ${!answered ? colors.hover : ''} ${
+                      isSelected ? 'ring-4 ring-yellow-400 scale-105 z-10' : ''
+                    } ${answered ? 'opacity-90 cursor-not-allowed' : ''}`}
                   >
-                    <span className="text-2xl md:text-3xl font-bold">{option}</span>
+                     <div className="flex items-center justify-center gap-4">
+                        {isSelected && <Check className="w-8 h-8 text-white stroke-[3]" />}
+                        <span className="text-2xl md:text-3xl font-bold">{option}</span>
+                     </div>
                   </motion.button>
                 )
               })}
