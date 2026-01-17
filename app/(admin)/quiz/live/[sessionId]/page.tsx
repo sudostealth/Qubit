@@ -7,6 +7,7 @@ import { Play, SkipForward, Trophy, Users, Eye, EyeOff, X, BarChart2, CheckCircl
 import { createClient } from '@/lib/supabase/client'
 import { getAvatarUrl, type AvatarStyle } from '@/lib/utils/avatar'
 import Image from 'next/image'
+import LeaderboardView from './LeaderboardView'
 
 interface Question {
   id: string
@@ -45,6 +46,7 @@ export default function LiveGamePage() {
 
   useEffect(() => {
     if (!sessionId) return
+    if (viewState === 'LEADERBOARD') return
 
     const fetchData = async () => {
       const supabase = createClient()
@@ -351,7 +353,7 @@ export default function LiveGamePage() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Main Content */}
-          <div className={`${viewState === 'ACTIVE' ? 'lg:col-span-3' : 'lg:col-span-2'} space-y-6`}>
+          <div className={`${viewState === 'ACTIVE' || viewState === 'LEADERBOARD' ? 'lg:col-span-3' : 'lg:col-span-2'} space-y-6`}>
             {/* Question Display */}
             {currentQuestion && viewState === 'PREVIEW' && (
               <div className="card text-center py-12">
@@ -387,33 +389,29 @@ export default function LiveGamePage() {
                   </div>
                 </div>
 
-                {/* Live Stats */}
-                <div className="card">
-                  <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                    <BarChart2 className="w-5 h-5" />
+                {/* Live Participant Count */}
+                <div className="card flex flex-col items-center justify-center p-8">
+                  <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                    <Users className="w-6 h-6" />
                     Live Responses
                   </h3>
-                  <div className="h-full flex flex-col justify-center space-y-4">
-                     {currentQuestion.options.map((option, index) => {
-                        const count = answerStats[index] || 0
-                        const total = answerStats.reduce((a, b) => a + b, 0) || 1
-                        const percentage = Math.round((count / total) * 100)
 
-                        return (
-                          <div key={index} className="space-y-1">
-                            <div className="flex justify-between text-sm font-medium">
-                              <span className="truncate max-w-[200px]">{option}</span>
-                              <span>{count}</span>
-                            </div>
-                            <div className="h-4 bg-gray-100 rounded-full overflow-hidden">
-                              <div
-                                className="h-full bg-primary-500 transition-all duration-500 ease-out"
-                                style={{ width: `${percentage}%` }}
-                              />
-                            </div>
-                          </div>
-                        )
-                     })}
+                  <div className="text-center">
+                    <div className="text-6xl font-black text-primary-600 mb-2">
+                      {answerStats.reduce((a, b) => a + b, 0)}
+                      <span className="text-3xl text-gray-400 font-bold mx-2">/</span>
+                      <span className="text-4xl text-gray-400 font-bold">{players.length}</span>
+                    </div>
+                    <p className="text-lg font-bold text-gray-600">Participants Answered</p>
+                  </div>
+
+                  <div className="mt-8 w-full bg-gray-100 h-4 rounded-full overflow-hidden">
+                    <div
+                      className="bg-primary-500 h-full transition-all duration-500"
+                      style={{
+                        width: `${Math.round((answerStats.reduce((a, b) => a + b, 0) / (players.length || 1)) * 100)}%`
+                      }}
+                    />
                   </div>
                 </div>
               </div>
@@ -456,53 +454,11 @@ export default function LiveGamePage() {
             )}
 
             {/* Leaderboard */}
-            {showLeaderboard && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="card"
-              >
-                <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                  <Trophy className="w-6 h-6 text-yellow-500" />
-                  Current Standings
-                </h2>
-
-                <div className="space-y-3">
-                  {players.slice(0, 10).map((player, index) => {
-                    const { style, seed } = parseAvatarSeed(player.avatar_seed)
-                    const avatarUrl = getAvatarUrl(seed, style)
-
-                    return (
-                      <div
-                        key={player.id}
-                        className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg"
-                      >
-                        <span className="text-2xl font-bold text-gray-400 w-8">
-                          {index + 1}
-                        </span>
-                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary-100 to-secondary-100 p-1">
-                          <div className="w-full h-full rounded-full bg-white overflow-hidden">
-                            <Image
-                              src={avatarUrl}
-                              alt={player.nickname}
-                              width={48}
-                              height={48}
-                              className="w-full h-full"
-                              unoptimized
-                            />
-                          </div>
-                        </div>
-                        <span className="flex-1 font-bold text-gray-900">
-                          {player.nickname}
-                        </span>
-                        <span className="text-xl font-bold text-primary-600">
-                          {player.score}
-                        </span>
-                      </div>
-                    )
-                  })}
-                </div>
-              </motion.div>
+            {showLeaderboard && currentQuestion && (
+              <LeaderboardView
+                players={players}
+                currentQuestionId={currentQuestion.id}
+              />
             )}
 
             {/* Controls */}
@@ -562,7 +518,7 @@ export default function LiveGamePage() {
           </div>
 
           {/* Sidebar - Live Players */}
-          {viewState !== 'ACTIVE' && (
+          {viewState !== 'ACTIVE' && viewState !== 'LEADERBOARD' && (
             <div className="lg:col-span-1">
               <div className="card sticky top-4">
                 <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
