@@ -19,10 +19,10 @@ interface Question {
 }
 
 const answerColors = [
-  { bg: 'bg-answer-red', hover: 'hover:bg-red-700', ring: 'ring-red-500' },
-  { bg: 'bg-answer-blue', hover: 'hover:bg-blue-700', ring: 'ring-blue-500' },
-  { bg: 'bg-answer-yellow', hover: 'hover:bg-yellow-600', ring: 'ring-yellow-500' },
-  { bg: 'bg-answer-green', hover: 'hover:bg-green-700', ring: 'ring-green-500' },
+  { bg: 'answer-btn-red', hover: 'hover:bg-red-700', ring: 'ring-red-500' },
+  { bg: 'answer-btn-blue', hover: 'hover:bg-blue-700', ring: 'ring-blue-500' },
+  { bg: 'answer-btn-yellow', hover: 'hover:bg-yellow-600', ring: 'ring-yellow-500' },
+  { bg: 'answer-btn-green', hover: 'hover:bg-green-700', ring: 'ring-green-500' },
 ]
 
 export default function PlayPage() {
@@ -466,7 +466,7 @@ export default function PlayPage() {
                   >
                      <div className="flex items-center justify-center gap-4">
                         {isSelected && <Check className="w-8 h-8 text-white stroke-[3]" />}
-                        <span className="text-2xl md:text-3xl font-bold">{option}</span>
+                        <span className="text-2xl md:text-3xl font-bold text-white">{option}</span>
                      </div>
                   </motion.button>
                 )

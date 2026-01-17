@@ -259,6 +259,8 @@ export default function LiveGamePage() {
   }
 
   const handleShowLeaderboard = async () => {
+    // Only switch if we have players, otherwise it looks empty
+    // But even if empty, we should allow it so flow continues
     setShowStats(false)
     setShowLeaderboard(true)
     setViewState('LEADERBOARD')
