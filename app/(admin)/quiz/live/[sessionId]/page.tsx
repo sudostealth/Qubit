@@ -290,22 +290,26 @@ export default function LiveGamePage() {
   }
 
   const handleEndGame = async () => {
-    const supabase = createClient()
-    
-    // Update session status
-    await supabase
-      .from('game_sessions')
-      .update({ status: 'finished', finished_at: new Date().toISOString() })
-      .eq('id', sessionId)
+    if (!confirm('Are you sure you want to end the game? This will clear all participant data.')) {
+      return
+    }
 
-    // Broadcast end event
+    const supabase = createClient()
+
+    // 1. Broadcast cleanup event to players
     await supabase.channel(`game:${sessionId}`).send({
       type: 'broadcast',
-      event: 'game:end',
+      event: 'game:cleanup',
     })
 
-    // Redirect to results
-    router.push(`/results/${sessionId}`)
+    // 2. Delete the session (Cascade deletes players and answers)
+    await supabase
+      .from('game_sessions')
+      .delete()
+      .eq('id', sessionId)
+
+    // 3. Redirect Admin to Dashboard
+    router.push('/dashboard')
   }
 
   const parseAvatarSeed = (seed: string): { style: AvatarStyle; seed: string } => {
@@ -467,10 +471,13 @@ export default function LiveGamePage() {
               <LeaderboardView
                 players={players}
                 currentQuestionId={currentQuestion.id}
+                isFinal={isLastQuestion}
+                onEndGame={handleEndGame}
               />
             )}
 
-            {/* Controls */}
+            {/* Controls - Hide on final leaderboard because PodiumView has its own controls */}
+            {!(showLeaderboard && isLastQuestion) && (
             <div className="card">
               <div className="flex gap-4">
                 {viewState === 'PREVIEW' && currentQuestionIndex < questions.length && (
@@ -524,6 +531,7 @@ export default function LiveGamePage() {
                 )}
               </div>
             </div>
+            )}
           </div>
 
           {/* Sidebar - Live Players */}
