@@ -149,6 +149,9 @@ export default function PlayPage() {
       .on('broadcast', { event: 'game:end' }, () => {
         router.push(`/results/${sessionId}?playerId=${playerId}`)
       })
+      .on('broadcast', { event: 'game:cleanup' }, () => {
+        router.push('/join')
+      })
       .subscribe()
 
     return () => {
