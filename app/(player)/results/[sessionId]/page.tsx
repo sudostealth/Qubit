@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { Trophy, Medal, Award, Home } from 'lucide-react'
+import { Trophy, Medal, Award, Home, CheckCircle, XCircle } from 'lucide-react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { getAvatarUrl, type AvatarStyle } from '@/lib/utils/avatar'
@@ -15,6 +15,8 @@ interface LeaderboardEntry {
   avatar_seed: string
   score: number
   rank: number
+  correct_count: number
+  wrong_count: number
 }
 
 export default function ResultsPage() {
@@ -33,22 +35,29 @@ export default function ResultsPage() {
     const fetchResults = async () => {
       const supabase = createClient()
 
-      // Get all players with scores
+      // Get all players with scores and answers
       const { data: players } = await supabase
         .from('players')
-        .select('*')
+        .select('*, player_answers(is_correct)')
         .eq('session_id', sessionId)
         .eq('is_active', true)
         .order('score', { ascending: false })
 
       if (players) {
-        const leaderboardData = players.map((player, index) => ({
-          id: player.id,
-          nickname: player.nickname,
-          avatar_seed: player.avatar_seed,
-          score: player.score,
-          rank: index + 1,
-        }))
+        const leaderboardData = players.map((player, index) => {
+          const correct = player.player_answers?.filter((a: any) => a.is_correct).length || 0
+          const total = player.player_answers?.length || 0
+
+          return {
+            id: player.id,
+            nickname: player.nickname,
+            avatar_seed: player.avatar_seed,
+            score: player.score,
+            rank: index + 1,
+            correct_count: correct,
+            wrong_count: total - correct,
+          }
+        })
 
         setLeaderboard(leaderboardData)
 
@@ -101,27 +110,107 @@ export default function ResultsPage() {
           <p className="text-xl text-gray-600">Final Results</p>
         </motion.div>
 
-        {/* Current Player Score */}
+        {/* Podium */}
+        {leaderboard.length >= 3 && (
+          <div className="flex justify-center items-end gap-4 mb-12 h-64">
+             {/* 2nd Place */}
+             <motion.div
+               initial={{ opacity: 0, y: 50 }}
+               animate={{ opacity: 1, y: 0 }}
+               transition={{ delay: 0.5 }}
+               className="flex flex-col items-center"
+             >
+                <div className="relative">
+                  <Medal className="w-8 h-8 text-gray-400 absolute -top-10 left-1/2 -translate-x-1/2" />
+                  <div className="w-20 h-20 rounded-full border-4 border-gray-400 overflow-hidden bg-white z-10 relative">
+                     <Image src={getAvatarUrl(parseAvatarSeed(leaderboard[1].avatar_seed).seed, parseAvatarSeed(leaderboard[1].avatar_seed).style)} width={80} height={80} alt={leaderboard[1].nickname} className="w-full h-full" unoptimized />
+                  </div>
+                </div>
+                <div className="h-32 w-24 bg-gray-200 rounded-t-lg flex items-center justify-center mt-4">
+                   <span className="text-4xl font-bold text-gray-400">2</span>
+                </div>
+                <p className="font-bold mt-2 text-center w-24 truncate">{leaderboard[1].nickname}</p>
+                <p className="text-sm text-gray-500">{leaderboard[1].score} pts</p>
+             </motion.div>
+
+             {/* 1st Place */}
+             <motion.div
+               initial={{ opacity: 0, y: 50 }}
+               animate={{ opacity: 1, y: 0 }}
+               transition={{ delay: 0.7 }}
+               className="flex flex-col items-center z-10"
+             >
+                <div className="relative">
+                  <Trophy className="w-12 h-12 text-yellow-500 absolute -top-14 left-1/2 -translate-x-1/2" />
+                  <div className="w-24 h-24 rounded-full border-4 border-yellow-500 overflow-hidden bg-white z-10 relative shadow-xl">
+                     <Image src={getAvatarUrl(parseAvatarSeed(leaderboard[0].avatar_seed).seed, parseAvatarSeed(leaderboard[0].avatar_seed).style)} width={96} height={96} alt={leaderboard[0].nickname} className="w-full h-full" unoptimized />
+                  </div>
+                </div>
+                <div className="h-40 w-28 bg-yellow-100 rounded-t-lg flex items-center justify-center mt-4 border-t-4 border-yellow-400">
+                   <span className="text-6xl font-black text-yellow-600">1</span>
+                </div>
+                <p className="font-bold mt-2 text-center w-28 truncate">{leaderboard[0].nickname}</p>
+                <p className="text-sm text-gray-500">{leaderboard[0].score} pts</p>
+             </motion.div>
+
+             {/* 3rd Place */}
+             <motion.div
+               initial={{ opacity: 0, y: 50 }}
+               animate={{ opacity: 1, y: 0 }}
+               transition={{ delay: 0.9 }}
+               className="flex flex-col items-center"
+             >
+                <div className="relative">
+                  <Award className="w-8 h-8 text-orange-600 absolute -top-10 left-1/2 -translate-x-1/2" />
+                  <div className="w-20 h-20 rounded-full border-4 border-orange-600 overflow-hidden bg-white z-10 relative">
+                     <Image src={getAvatarUrl(parseAvatarSeed(leaderboard[2].avatar_seed).seed, parseAvatarSeed(leaderboard[2].avatar_seed).style)} width={80} height={80} alt={leaderboard[2].nickname} className="w-full h-full" unoptimized />
+                  </div>
+                </div>
+                <div className="h-24 w-24 bg-orange-100 rounded-t-lg flex items-center justify-center mt-4">
+                   <span className="text-4xl font-bold text-orange-600">3</span>
+                </div>
+                <p className="font-bold mt-2 text-center w-24 truncate">{leaderboard[2].nickname}</p>
+                <p className="text-sm text-gray-500">{leaderboard[2].score} pts</p>
+             </motion.div>
+          </div>
+        )}
+
+        {/* Current Player Stats */}
         {currentPlayer && (
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.2 }}
-            className="card mb-8 bg-gradient-to-r from-primary-500 to-secondary-500 text-white"
+            className="card mb-8 bg-white border-2 border-primary-100"
           >
-            <div className="text-center">
-              <p className="text-lg mb-2">Your Rank</p>
-              <p className="text-6xl font-black mb-4">#{currentPlayer.rank}</p>
-              <p className="text-3xl font-bold">{currentPlayer.score} points</p>
+            <div className="grid grid-cols-3 gap-4 text-center">
+              <div>
+                <p className="text-sm text-gray-500 mb-1">Rank</p>
+                <p className="text-3xl font-black text-primary-600">#{currentPlayer.rank}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500 mb-1">Score</p>
+                <p className="text-3xl font-black text-primary-600">{currentPlayer.score}</p>
+              </div>
+              <div>
+                 <p className="text-sm text-gray-500 mb-1">Accuracy</p>
+                 <div className="flex items-center justify-center gap-2">
+                    <span className="flex items-center text-green-600 font-bold">
+                       <CheckCircle className="w-4 h-4 mr-1" /> {currentPlayer.correct_count}
+                    </span>
+                    <span className="flex items-center text-red-500 font-bold">
+                       <XCircle className="w-4 h-4 mr-1" /> {currentPlayer.wrong_count}
+                    </span>
+                 </div>
+              </div>
             </div>
           </motion.div>
         )}
 
-        {/* Leaderboard */}
+        {/* Full Leaderboard */}
         <div className="card">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-            <Trophy className="w-6 h-6 text-yellow-500" />
-            Leaderboard
+          <h2 className="text-xl font-bold text-gray-900 mb-6">
+            All Participants
           </h2>
 
           <div className="space-y-3">
@@ -138,59 +227,37 @@ export default function ResultsPage() {
                   transition={{ delay: index * 0.1 }}
                   className={`flex items-center gap-4 p-4 rounded-lg transition-all ${
                     isCurrentPlayer
-                      ? 'bg-gradient-to-r from-primary-100 to-secondary-100 ring-2 ring-primary-500'
-                      : 'bg-gray-50 hover:bg-gray-100'
+                      ? 'bg-primary-50 ring-2 ring-primary-500'
+                      : 'bg-gray-50'
                   }`}
                 >
-                  {/* Rank */}
-                  <div className="flex-shrink-0 w-12 text-center">
-                    {player.rank <= 3 ? (
-                      getMedalIcon(player.rank)
-                    ) : (
-                      <span className="text-2xl font-bold text-gray-400">
-                        {player.rank}
-                      </span>
-                    )}
+                  <span className="w-8 font-bold text-gray-400">#{player.rank}</span>
+
+                  <div className="w-10 h-10 rounded-full bg-white overflow-hidden border border-gray-200">
+                    <Image
+                      src={avatarUrl}
+                      alt={player.nickname}
+                      width={40}
+                      height={40}
+                      className="w-full h-full"
+                      unoptimized
+                    />
                   </div>
 
-                  {/* Avatar */}
-                  <div className="flex-shrink-0">
-                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary-100 to-secondary-100 p-1">
-                      <div className="w-full h-full rounded-full bg-white overflow-hidden">
-                        <Image
-                          src={avatarUrl}
-                          alt={player.nickname}
-                          width={64}
-                          height={64}
-                          className="w-full h-full"
-                          unoptimized
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Nickname */}
                   <div className="flex-1 min-w-0">
                     <p className={`font-bold truncate ${
                       isCurrentPlayer ? 'text-primary-900' : 'text-gray-900'
                     }`}>
                       {player.nickname}
-                      {isCurrentPlayer && (
-                        <span className="ml-2 text-sm font-normal text-primary-600">
-                          (You)
-                        </span>
-                      )}
                     </p>
+                    <div className="flex gap-3 text-xs text-gray-500">
+                        <span className="flex items-center gap-1"><CheckCircle className="w-3 h-3 text-green-500" /> {player.correct_count}</span>
+                        <span className="flex items-center gap-1"><XCircle className="w-3 h-3 text-red-500" /> {player.wrong_count}</span>
+                    </div>
                   </div>
 
-                  {/* Score */}
-                  <div className="flex-shrink-0 text-right">
-                    <p className={`text-2xl font-bold ${
-                      isCurrentPlayer ? 'text-primary-600' : 'text-gray-900'
-                    }`}>
-                      {player.score.toLocaleString()}
-                    </p>
-                    <p className="text-sm text-gray-500">points</p>
+                  <div className="text-right font-bold text-gray-900">
+                    {player.score}
                   </div>
                 </motion.div>
               )
