@@ -1,26 +1,178 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
+@layer base {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --font-inter: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+
+  body {
+    background: linear-gradient(135deg, #f0f9ff 0%, #ffffff 50%, #faf5ff 100%);
+    color: #111827;
+    font-family: var(--font-inter), system-ui, sans-serif;
+    font-feature-settings: "rlig" 1, "calt" 1;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer components {
+  /* Button styles */
+  .btn {
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    transition: all 0.2s;
+  }
+
+  .btn:focus {
+    outline: none;
+    ring: 2px;
+    ring-offset: 2px;
+  }
+
+  .btn-primary {
+    background: linear-gradient(to right, #0284c7, #9333ea);
+    color: white;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  }
+
+  .btn-primary:hover {
+    background: linear-gradient(to right, #0369a1, #7e22ce);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+    transform: scale(1.05);
+  }
+
+  .btn-secondary {
+    background: white;
+    color: #0369a1;
+    border: 2px solid #0284c7;
+  }
+
+  .btn-secondary:hover {
+    background: #f0f9ff;
+  }
+
+  /* Answer button styles */
+  .answer-btn {
+    width: 100%;
+    padding: 2rem;
+    border-radius: 1rem;
+    color: white;
+    font-weight: bold;
+    font-size: 1.5rem;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    transition: all 0.2s;
+  }
+
+  .answer-btn:hover {
+    transform: scale(1.05);
+  }
+
+  .answer-btn:active {
+    transform: scale(0.95);
+  }
+
+  .answer-btn-red {
+    background: #E21B3C;
+  }
+
+  .answer-btn-red:hover {
+    background: #b91c1c;
+  }
+
+  .answer-btn-blue {
+    background: #1368CE;
+  }
+
+  .answer-btn-blue:hover {
+    background: #1e40af;
+  }
+
+  .answer-btn-yellow {
+    background: #D89E00;
+  }
+
+  .answer-btn-yellow:hover {
+    background: #ca8a04;
+  }
+
+  .answer-btn-green {
+    background: #26890C;
+  }
+
+  .answer-btn-green:hover {
+    background: #15803d;
+  }
+
+  /* Card styles */
+  .card {
+    background: white;
+    border-radius: 0.75rem;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    padding: 1.5rem;
+    border: 1px solid #f3f4f6;
+  }
+
+  .card-hover {
+    background: white;
+    border-radius: 0.75rem;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    padding: 1.5rem;
+    border: 1px solid #f3f4f6;
+    transition: all 0.3s;
+  }
+
+  .card-hover:hover {
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    transform: translateY(-0.25rem);
+  }
+
+  /* Input styles */
+  .input {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border-radius: 0.5rem;
+    border: 2px solid #d1d5db;
+    transition: all 0.2s;
+  }
+
+  .input:focus {
+    outline: none;
+    border-color: #0284c7;
+    ring: 2px;
+    ring-color: #bae6fd;
+  }
+
+  /* Gradient text */
+  .gradient-text {
+    background: linear-gradient(to right, #0284c7, #9333ea);
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+  }
+
+  /* Glass morphism */
+  .glass {
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  }
+}
+
+@layer utilities {
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .text-shadow {
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  .text-shadow-lg {
+    text-shadow: 4px 4px 8px rgba(0, 0, 0, 0.2);
+  }
 }
