@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { PlusCircle, List, LogOut, User } from 'lucide-react'
 import QuizCard from '@/components/admin/QuizCard'
+import CleanupTrigger from '@/components/admin/CleanupTrigger'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -50,6 +51,8 @@ export default async function DashboardPage() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <CleanupTrigger />
+
         {/* Welcome Section */}
         <div className="mb-12">
           <h1 className="text-4xl font-bold text-gray-900 mb-2">
