@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Play, SkipForward, Trophy, Users, Eye, EyeOff, X, BarChart2, CheckCircle } from 'lucide-react'
@@ -44,9 +44,14 @@ export default function LiveGamePage() {
   const [quizTitle, setQuizTitle] = useState('')
   const [viewState, setViewState] = useState<'PREVIEW' | 'ACTIVE' | 'STATS' | 'LEADERBOARD'>('PREVIEW')
 
+  // Keep track of viewState in a ref to use in subscriptions without triggering re-renders
+  const viewStateRef = useRef(viewState)
+  useEffect(() => {
+    viewStateRef.current = viewState
+  }, [viewState])
+
   useEffect(() => {
     if (!sessionId) return
-    if (viewState === 'LEADERBOARD') return
 
     const fetchData = async () => {
       const supabase = createClient()
@@ -157,7 +162,7 @@ export default function LiveGamePage() {
         },
         (payload) => {
           // Update live stats
-          if (viewState === 'ACTIVE') {
+          if (viewStateRef.current === 'ACTIVE') {
             const answer = payload.new
             setAnswerStats((prev) => {
               const newStats = [...prev]
@@ -174,7 +179,7 @@ export default function LiveGamePage() {
     return () => {
       supabase.removeChannel(gameChannel)
     }
-  }, [sessionId, currentQuestionIndex, questions, viewState])
+  }, [sessionId, currentQuestionIndex, questions])
 
   // Timer countdown
   useEffect(() => {
