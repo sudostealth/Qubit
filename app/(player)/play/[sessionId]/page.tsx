@@ -150,7 +150,7 @@ export default function PlayPage() {
         router.push(`/results/${sessionId}?playerId=${playerId}`)
       })
       .on('broadcast', { event: 'game:cleanup' }, () => {
-        router.push('/join')
+        window.location.href = '/'
       })
       .subscribe()
 
