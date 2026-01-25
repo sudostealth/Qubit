@@ -2,7 +2,8 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import QuizEditor from '@/components/admin/QuizEditor'
 
-export default async function EditQuizPage({ params }: { params: { id: string } }) {
+export default async function EditQuizPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -14,7 +15,7 @@ export default async function EditQuizPage({ params }: { params: { id: string } 
   const { data: quiz } = await supabase
     .from('quizzes')
     .select('*')
-    .eq('id', params.id)
+    .eq('id', id)
     .eq('creator_id', user.id)
     .single()
 
@@ -26,7 +27,7 @@ export default async function EditQuizPage({ params }: { params: { id: string } 
   const { data: questions } = await supabase
     .from('questions')
     .select('*')
-    .eq('quiz_id', params.id)
+    .eq('quiz_id', id)
     .order('question_order', { ascending: true })
 
   return (
