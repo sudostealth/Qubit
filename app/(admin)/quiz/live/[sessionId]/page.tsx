@@ -473,6 +473,8 @@ export default function LiveGamePage() {
                 currentQuestionId={currentQuestion.id}
                 isFinal={isLastQuestion}
                 onEndGame={handleEndGame}
+                sessionId={sessionId}
+                totalQuestions={questions.length}
               />
             )}
 

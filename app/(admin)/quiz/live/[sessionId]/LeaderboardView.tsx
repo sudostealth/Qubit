@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import { motion, AnimatePresence, useSpring, useTransform } from 'framer-motion'
 import { Trophy, Crown, Medal, Flame, Zap } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -20,6 +20,8 @@ interface LeaderboardViewProps {
   currentQuestionId: string
   isFinal?: boolean
   onEndGame?: () => void
+  sessionId?: string
+  totalQuestions?: number
 }
 
 function AnimatedNumber({ from, to, delay = 0 }: { from: number; to: number; delay?: number }) {
@@ -37,15 +39,26 @@ function AnimatedNumber({ from, to, delay = 0 }: { from: number; to: number; del
   return <motion.span>{display}</motion.span>
 }
 
-export default function LeaderboardView({ players, currentQuestionId, isFinal, onEndGame }: LeaderboardViewProps) {
+export default function LeaderboardView({
+  players,
+  currentQuestionId,
+  isFinal,
+  onEndGame,
+  sessionId,
+  totalQuestions
+}: LeaderboardViewProps) {
   const [previousScores, setPreviousScores] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const [phase, setPhase] = useState<'INIT' | 'ANIMATING' | 'SORTED' | 'PODIUM'>('INIT')
   const [risingStarId, setRisingStarId] = useState<string | null>(null)
   const [fastestId, setFastestId] = useState<string | null>(null)
 
+  // Track if we have already started animation for this question
+  const animatedQuestionRef = useRef<string | null>(null)
+
+  // 1. Data Calculation Effect (Runs when players/question updates)
   useEffect(() => {
-    const initLeaderboard = async () => {
+    const calculateStats = async () => {
       const supabase = createClient()
 
       // Get answers for this question to calculate delta and find fast/rising
@@ -56,23 +69,23 @@ export default function LeaderboardView({ players, currentQuestionId, isFinal, o
 
       const prevScores: Record<string, number> = {}
 
-      // 1. Calculate Previous Scores
+      // Calculate Previous Scores
       players.forEach(player => {
         const answer = answers?.find((a: any) => a.player_id === player.id)
         const pointsEarned = answer?.points_earned || 0
         prevScores[player.id] = player.score - pointsEarned
       })
 
-      // 2. Determine Fastest Performer (Correct Answer + Lowest Time)
+      // Determine Fastest Performer
       const correctAnswers = answers?.filter((a: any) => a.is_correct && a.time_taken !== null) || []
       if (correctAnswers.length > 0) {
-        // Sort by time_taken ascending
         correctAnswers.sort((a: any, b: any) => a.time_taken - b.time_taken)
         setFastestId(correctAnswers[0].player_id)
+      } else {
+        setFastestId(null)
       }
 
-      // 3. Determine Rising Star (Biggest Rank Jump)
-      // Sort players by previous score
+      // Determine Rising Star
       const prevSorted = [...players].sort((a, b) => prevScores[b.id] - prevScores[a.id])
       const currSorted = [...players].sort((a, b) => b.score - a.score)
 
@@ -90,26 +103,43 @@ export default function LeaderboardView({ players, currentQuestionId, isFinal, o
         }
       })
       setRisingStarId(starId)
-
       setPreviousScores(prevScores)
       setLoading(false)
-
-      // Start Sequence
-      // Phase 1: Show list sorted by PREVIOUS score (numbers also previous) - Done by initial render
-      // Phase 2: Animate numbers (keep prev sort) - Start immediately or small delay
-      setTimeout(() => setPhase('ANIMATING'), 500)
-
-      // Phase 3: Re-sort list (numbers finished)
-      setTimeout(() => setPhase('SORTED'), 3000)
-
-      // Phase 4: If Final, switch to Podium
-      if (isFinal) {
-        setTimeout(() => setPhase('PODIUM'), 6000)
-      }
     }
 
-    initLeaderboard()
-  }, [currentQuestionId, players, isFinal])
+    calculateStats()
+  }, [currentQuestionId, players])
+
+  // 2. Animation Sequence Effect (Runs ONLY when question changes or mount)
+  useEffect(() => {
+    // If we have already animated this question, do not restart sequence
+    if (animatedQuestionRef.current === currentQuestionId) {
+      return
+    }
+
+    // Mark as animating
+    animatedQuestionRef.current = currentQuestionId
+
+    // Reset phase (just in case)
+    setPhase('INIT')
+
+    const timers: NodeJS.Timeout[] = []
+
+    // Phase 2: Animate numbers
+    timers.push(setTimeout(() => setPhase('ANIMATING'), 500))
+
+    // Phase 3: Re-sort list
+    timers.push(setTimeout(() => setPhase('SORTED'), 3000))
+
+    // Phase 4: Podium (if final)
+    if (isFinal) {
+      timers.push(setTimeout(() => setPhase('PODIUM'), 6000))
+    }
+
+    return () => {
+      timers.forEach(clearTimeout)
+    }
+  }, [currentQuestionId, isFinal])
 
   const parseAvatarSeed = (seed: string): { style: AvatarStyle; seed: string } => {
     const [style, actualSeed] = seed.split(':')
@@ -136,7 +166,14 @@ export default function LeaderboardView({ players, currentQuestionId, isFinal, o
 
   // Show Podium View if final and phase reached
   if (isFinal && phase === 'PODIUM' && onEndGame) {
-     return <PodiumView players={players} onEndGame={onEndGame} />
+     return (
+       <PodiumView
+         players={players}
+         onEndGame={onEndGame}
+         sessionId={sessionId}
+         totalQuestions={totalQuestions}
+       />
+     )
   }
 
   return (
@@ -158,12 +195,6 @@ export default function LeaderboardView({ players, currentQuestionId, isFinal, o
             // Score handling
             const prevScore = previousScores[player.id] ?? 0
             const currentScore = player.score
-
-            // Rank styling (only valid in SORTED phase for accurate coloring, but we can animate colors too)
-            // If we are in INIT/ANIMATING, the index reflects Previous Rank.
-            // If we are in SORTED, index reflects Current Rank.
-            // Let's use current rank for styling even during animation if we want, OR use index.
-            // Using index gives visual feedback of position.
 
             const isTop3 = index < 3
             const isRising = player.id === risingStarId
