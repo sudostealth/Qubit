@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { motion } from 'framer-motion'
 import { Gamepad2, Users, Zap, Trophy, Sparkles, ArrowRight } from 'lucide-react'
 
@@ -172,6 +173,49 @@ export default function Home() {
               </motion.div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* Developer Teaser */}
+      <section className="py-20 px-4 bg-slate-900 text-white relative overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_50%,rgba(6,182,212,0.1),transparent_50%)]" />
+        <div className="max-w-4xl mx-auto relative z-10 text-center">
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-8 md:p-12 hover:border-cyan-500/30 transition-colors group cursor-pointer"
+            >
+                <Link href="/developer">
+                    <div className="flex flex-col items-center gap-6">
+                        <div className="relative w-24 h-24 rounded-full overflow-hidden border-2 border-cyan-500/50 group-hover:border-cyan-400 transition-all group-hover:scale-110 shadow-[0_0_20px_rgba(6,182,212,0.2)]">
+                            <Image
+                                src="https://github.com/sudostealth.png"
+                                alt="Developer"
+                                fill
+                                className="object-cover"
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <h2 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-500">
+                                Meet the Creator
+                            </h2>
+                            <p className="text-slate-400 text-lg group-hover:text-slate-300 transition-colors">
+                                Curious about the mind behind Qubit?
+                            </p>
+                        </div>
+
+                        <motion.div
+                            whileHover={{ scale: 1.05 }}
+                            className="px-6 py-2 rounded-full bg-cyan-500/10 text-cyan-400 font-medium border border-cyan-500/20 group-hover:bg-cyan-500/20 transition-all flex items-center gap-2"
+                        >
+                           <span>Discover More</span>
+                           <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                        </motion.div>
+                    </div>
+                </Link>
+            </motion.div>
         </div>
       </section>
 
