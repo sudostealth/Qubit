@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 
 export async function updateSession(request: NextRequest) {
   // Allow public routes to work even without Supabase credentials
-  const publicPaths = ['/', '/join', '/lobby', '/play', '/results']
+  const publicPaths = ['/', '/join', '/lobby', '/play', '/results', '/developer']
   const isPublicPath = publicPaths.some(path => request.nextUrl.pathname === path || request.nextUrl.pathname.startsWith(path + '/'))
   
   // If Supabase credentials are missing and it's a public path, just continue
