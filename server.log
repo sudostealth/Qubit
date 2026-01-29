@@ -19,3 +19,18 @@ https://nextjs.org/telemetry
 ○ Compiling /join ...
  GET /join 200 in 5.2s (compile: 4.7s, proxy.ts: 20ms, render: 444ms)
  GET /lobby/123e4567-e89b-12d3-a456-426614174000 200 in 2.5s (compile: 2.3s, proxy.ts: 7ms, render: 226ms)
+ GET /?error=supabase_not_configured 200 in 733ms (compile: 238ms, proxy.ts: 37ms, render: 458ms)
+  Reload env: .env.local
+✓ Compiled in 5.8s
+○ Compiling /auth/login ...
+ HEAD /auth/login 200 in 7.8s (compile: 7.2s, proxy.ts: 235ms, render: 369ms)
+ GET /auth/login 200 in 84ms (compile: 11ms, proxy.ts: 9ms, render: 64ms)
+ GET /join 200 in 611ms (compile: 246ms, proxy.ts: 19ms, render: 347ms)
+ GET /join 200 in 91ms (compile: 8ms, proxy.ts: 7ms, render: 75ms)
+ GET /join 200 in 90ms (compile: 10ms, proxy.ts: 7ms, render: 73ms)
+ GET /join 200 in 101ms (compile: 8ms, proxy.ts: 5ms, render: 88ms)
+ GET /join 200 in 96ms (compile: 9ms, proxy.ts: 7ms, render: 79ms)
+ GET /join 200 in 78ms (compile: 6ms, proxy.ts: 6ms, render: 66ms)
+ GET /join 200 in 77ms (compile: 7ms, proxy.ts: 9ms, render: 61ms)
+ GET /lobby/test-session-id?playerId=test-player-id 200 in 713ms (compile: 608ms, proxy.ts: 32ms, render: 73ms)
+ GET /lobby/test-session-id?playerId=test-player-id 200 in 934ms (compile: 156ms, proxy.ts: 10ms, render: 767ms)
