@@ -35,6 +35,7 @@ export default function LiveGamePage() {
   const [questions, setQuestions] = useState<Question[]>([])
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
   const [players, setPlayers] = useState<Player[]>([])
+  const [totalPlayerCount, setTotalPlayerCount] = useState(0)
   const [showLeaderboard, setShowLeaderboard] = useState(false)
   const [showStats, setShowStats] = useState(false)
   const [answerStats, setAnswerStats] = useState<number[]>([])
@@ -116,13 +117,23 @@ export default function LiveGamePage() {
           }
         }
 
-        // Get players
+        // Get total player count
+        const { count } = await supabase
+          .from('players')
+          .select('*', { count: 'exact', head: true })
+          .eq('session_id', sessionId)
+          .eq('is_active', true)
+
+        setTotalPlayerCount(count || 0)
+
+        // Get top players (limit to 200 for performance)
         const { data: playersData } = await supabase
           .from('players')
           .select('*')
           .eq('session_id', sessionId)
           .eq('is_active', true)
           .order('score', { ascending: false })
+          .limit(200)
 
         if (playersData) {
           setPlayers(playersData)
@@ -154,17 +165,39 @@ export default function LiveGamePage() {
         },
         (payload) => {
           if (payload.eventType === 'INSERT') {
+             setTotalPlayerCount(prev => prev + 1)
+             const newPlayer = payload.new as Player
+
              setPlayers((prev) => {
-                if (prev.some(p => p.id === payload.new.id)) return prev
-                return [...prev, payload.new as Player].sort((a, b) => b.score - a.score)
+                // Only add to list if we have less than limit or if it belongs in top list (based on score)
+                // Since new players start with 0 score, we only add if list is not full
+                if (prev.some(p => p.id === newPlayer.id)) return prev
+
+                if (prev.length < 200) {
+                   return [...prev, newPlayer].sort((a, b) => b.score - a.score)
+                }
+                // If list is full and new player score is higher (unlikely for new player), replace last?
+                // Simplification: only append if space.
+                return prev
              })
           } else if (payload.eventType === 'UPDATE') {
-             setPlayers((prev) =>
-               prev
-                 .map((p) => (p.id === payload.new.id ? (payload.new as Player) : p))
-                 .sort((a, b) => b.score - a.score)
-             )
+             const updatedPlayer = payload.new as Player
+             setPlayers((prev) => {
+               // If player is in our list, update them
+               if (prev.some(p => p.id === updatedPlayer.id)) {
+                 return prev
+                   .map((p) => (p.id === updatedPlayer.id ? updatedPlayer : p))
+                   .sort((a, b) => b.score - a.score)
+               }
+               // If player is NOT in our list (because they were > 200th), but now their score increased
+               // they might deserve to be in the list.
+               // For simplicity in this optimization phase, we won't handle "jumping into view" from outside 200
+               // without a refresh, unless we fetch the player explicitly.
+               // However, for most quizzes, top 200 is sufficient.
+               return prev
+             })
           } else if (payload.eventType === 'DELETE') {
+             setTotalPlayerCount(prev => Math.max(0, prev - 1))
              setPlayers((prev) => prev.filter(p => p.id !== payload.old.id))
           }
         }
@@ -371,7 +404,7 @@ export default function LiveGamePage() {
             <div className="flex items-center gap-4">
               <div className="text-right">
                 <p className="text-sm text-gray-600">Players</p>
-                <p className="text-2xl font-bold text-gray-900">{players.length}</p>
+                <p className="text-2xl font-bold text-gray-900">{totalPlayerCount}</p>
               </div>
 
               {questionActive && (
@@ -446,7 +479,7 @@ export default function LiveGamePage() {
                     <div className="text-6xl font-black text-primary-600 mb-2">
                       {answerStats.reduce((a, b) => a + b, 0)}
                       <span className="text-3xl text-gray-400 font-bold mx-2">/</span>
-                      <span className="text-4xl text-gray-400 font-bold">{players.length}</span>
+                      <span className="text-4xl text-gray-400 font-bold">{totalPlayerCount}</span>
                     </div>
                     <p className="text-lg font-bold text-gray-600">Participants Answered</p>
                   </div>
@@ -455,7 +488,7 @@ export default function LiveGamePage() {
                     <div
                       className="bg-primary-500 h-full transition-all duration-500"
                       style={{
-                        width: `${Math.round((answerStats.reduce((a, b) => a + b, 0) / (players.length || 1)) * 100)}%`
+                        width: `${Math.round((answerStats.reduce((a, b) => a + b, 0) / (totalPlayerCount || 1)) * 100)}%`
                       }}
                     />
                   </div>
@@ -575,7 +608,7 @@ export default function LiveGamePage() {
               <div className="card sticky top-4">
                 <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
                   <Users className="w-5 h-5" />
-                  Live Players ({players.length})
+                  Live Players ({totalPlayerCount})
                 </h3>
 
                 <div className="space-y-2 max-h-[600px] overflow-y-auto">
@@ -609,9 +642,9 @@ export default function LiveGamePage() {
                       </div>
                     )
                   })}
-                  {players.length > 100 && (
+                  {totalPlayerCount > displayedSidebarPlayers.length && (
                     <p className="text-xs text-center text-gray-500 italic mt-2">
-                      + {players.length - 100} more...
+                      + {totalPlayerCount - displayedSidebarPlayers.length} more...
                     </p>
                   )}
                 </div>

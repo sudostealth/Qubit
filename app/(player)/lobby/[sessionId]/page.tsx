@@ -35,12 +35,14 @@ export default function LobbyPage() {
 
   const [session, setSession] = useState<GameSession | null>(null)
   const [players, setPlayers] = useState<Player[]>([])
+  const [totalPlayerCount, setTotalPlayerCount] = useState(0)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (!sessionId) return
 
     const supabase = createClient()
+    let mounted = true
 
     // Fetch initial data
     const fetchData = async () => {
@@ -52,32 +54,64 @@ export default function LobbyPage() {
           .eq('id', sessionId)
           .single()
 
+        if (!mounted) return
+
         if (sessionData) {
+          // IMMEDIATE REDIRECT CHECK
+          if (sessionData.status === 'active') {
+            router.push(`/play/${sessionId}?playerId=${playerId}`)
+            return
+          }
           setSession(sessionData as GameSession)
         }
 
-        // Get players
+        // Get total count
+        const { count } = await supabase
+          .from('players')
+          .select('*', { count: 'exact', head: true })
+          .eq('session_id', sessionId)
+          .eq('is_active', true)
+
+        if (mounted) setTotalPlayerCount(count || 0)
+
+        // Get players (limited to 100)
         const { data: playersData } = await supabase
           .from('players')
           .select('*')
           .eq('session_id', sessionId)
           .eq('is_active', true)
           .order('joined_at', { ascending: true })
+          .limit(100)
 
-        if (playersData) {
-          setPlayers(playersData)
+        if (mounted && playersData) {
+          let loadedPlayers = playersData
+
+          // Ensure current player is included if not in the list
+          if (playerId && !playersData.some(p => p.id === playerId)) {
+             const { data: myData } = await supabase
+               .from('players')
+               .select('*')
+               .eq('id', playerId)
+               .single()
+
+             if (myData) {
+               loadedPlayers = [...loadedPlayers, myData]
+             }
+          }
+
+          setPlayers(loadedPlayers)
         }
       } catch (err) {
         console.error('Error loading lobby:', err)
       } finally {
-        setLoading(false)
+        if (mounted) setLoading(false)
       }
     }
 
     fetchData()
 
-    // Subscribe to player changes
-    const playersChannel = supabase
+    // Subscribe to changes
+    const channel = supabase
       .channel(`lobby:${sessionId}`)
       .on(
         'postgres_changes',
@@ -87,14 +121,21 @@ export default function LobbyPage() {
           table: 'players',
           filter: `session_id=eq.${sessionId}`,
         },
-        (payload) => {
+        async (payload) => {
           if (payload.eventType === 'INSERT') {
             const newPlayer = payload.new as Player
+            setTotalPlayerCount(prev => prev + 1)
+
             setPlayers((prev) => {
               if (prev.some(p => p.id === newPlayer.id)) return prev
-              return [...prev, newPlayer]
+              // Only append if we have less than 100 players or it's me
+              if (prev.length < 100 || newPlayer.id === playerId) {
+                return [...prev, newPlayer]
+              }
+              return prev
             })
           } else if (payload.eventType === 'DELETE') {
+            setTotalPlayerCount(prev => Math.max(0, prev - 1))
             setPlayers((prev) => prev.filter((p) => p.id !== payload.old.id))
           } else if (payload.eventType === 'UPDATE') {
             setPlayers((prev) =>
@@ -124,7 +165,8 @@ export default function LobbyPage() {
       .subscribe()
 
     return () => {
-      supabase.removeChannel(playersChannel)
+      mounted = false
+      supabase.removeChannel(channel)
     }
   }, [sessionId, playerId, router])
 
@@ -134,7 +176,6 @@ export default function LobbyPage() {
 
       const parts = seed.split(':')
       if (parts.length < 2) {
-        // Fallback for old/malformed seeds
         return { style: 'fun-emoji', seed: seed || 'default' }
       }
       return { style: parts[0] as AvatarStyle, seed: parts[1] }
@@ -145,21 +186,10 @@ export default function LobbyPage() {
   }
 
   const displayedPlayers = useMemo(() => {
-    // Show first 100 players to keep DOM lightweight
-    const slice = players.slice(0, 100)
-
-    // Ensure current player is visible even if joined late (and list is full)
-    if (playerId) {
-      const currentPlayer = players.find(p => p.id === playerId)
-      if (currentPlayer && !slice.find(p => p.id === playerId)) {
-        // Replace last item with current player or just append?
-        // Appending makes it 101 items which is fine.
-        slice.push(currentPlayer)
-      }
-    }
-
-    return slice
-  }, [players, playerId])
+    // Players are already limited by fetch, but we might have appended 'me' at the end
+    // Just sort or return as is.
+    return players
+  }, [players])
 
   if (loading) {
     return (
@@ -193,9 +223,9 @@ export default function LobbyPage() {
           
           <div className="flex items-center justify-center gap-2 text-gray-500">
             <Users className="w-5 h-5" />
-            <span className="font-semibold">{players.length} player{players.length !== 1 ? 's' : ''} joined</span>
+            <span className="font-semibold">{totalPlayerCount} player{totalPlayerCount !== 1 ? 's' : ''} joined</span>
           </div>
-          {players.length > 100 && (
+          {totalPlayerCount > 100 && (
             <p className="text-xs text-gray-400 mt-1">
               (Showing first 100 players)
             </p>
@@ -219,7 +249,7 @@ export default function LobbyPage() {
                   transition={{
                     type: 'spring',
                     stiffness: 200,
-                    delay: Math.min(index * 0.05, 1.0), // Cap delay so 100th item doesn't take 5s
+                    delay: Math.min(index * 0.05, 1.0),
                   }}
                   className={`card-hover text-center ${
                     isCurrentPlayer ? 'ring-4 ring-primary-500' : ''
