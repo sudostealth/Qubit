@@ -369,16 +369,16 @@ export default function LiveGamePage() {
           <div className={`${viewState === 'ACTIVE' || viewState === 'LEADERBOARD' ? 'lg:col-span-3' : 'lg:col-span-2'} space-y-6`}>
             {/* Question Display */}
             {currentQuestion && viewState === 'PREVIEW' && (
-              <div className="card text-center py-12">
-                <h2 className="text-3xl font-bold text-gray-900 mb-4">
+              <div className="card text-center py-16 bg-white border-4 border-primary-100 shadow-xl">
+                <h2 className="text-2xl font-bold text-primary-600 mb-6 uppercase tracking-wider">
                   Question {currentQuestionIndex + 1}
                 </h2>
-                <div className="text-xl text-gray-600 mb-8">
+                <div className="text-4xl md:text-5xl font-black text-gray-900 mb-12 leading-tight max-w-4xl mx-auto px-4">
                   {currentQuestion.text}
                 </div>
                 <div className="flex justify-center">
-                  <div className="bg-blue-50 text-blue-700 px-6 py-3 rounded-full font-bold">
-                    Wait for players to get ready...
+                  <div className="bg-primary-50 text-primary-700 px-8 py-4 rounded-full font-bold text-lg border-2 border-primary-100 animate-pulse">
+                    Waiting for players to get ready...
                   </div>
                 </div>
               </div>
@@ -386,8 +386,8 @@ export default function LiveGamePage() {
 
             {currentQuestion && viewState === 'ACTIVE' && (
               <div className="grid md:grid-cols-2 gap-6">
-                <div className="card">
-                  <h2 className="text-2xl font-bold text-gray-900 mb-6">
+                <div className="card border-2 border-primary-100 shadow-lg">
+                  <h2 className="text-3xl md:text-4xl font-black text-gray-900 mb-8 leading-tight">
                     {currentQuestion.text}
                   </h2>
                   <div className="space-y-3">
