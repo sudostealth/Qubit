@@ -7,8 +7,15 @@
 - Network:       http://192.168.0.2:3000
 
 ✓ Starting...
+Attention: Next.js now collects completely anonymous telemetry regarding usage.
+This information is used to shape Next.js' roadmap and prioritize features.
+You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+https://nextjs.org/telemetry
+
 ⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
-✓ Ready in 1649ms
-○ Compiling /join/test ...
- GET /join/test 200 in 6.3s (compile: 5.9s, proxy.ts: 30ms, render: 398ms)
- GET /join/test 200 in 104ms (compile: 9ms, proxy.ts: 8ms, render: 87ms)
+✓ Ready in 1717ms
+○ Compiling / ...
+ HEAD / 200 in 8.4s (compile: 7.8s, proxy.ts: 129ms, render: 467ms)
+○ Compiling /join ...
+ GET /join 200 in 5.2s (compile: 4.7s, proxy.ts: 20ms, render: 444ms)
+ GET /lobby/123e4567-e89b-12d3-a456-426614174000 200 in 2.5s (compile: 2.3s, proxy.ts: 7ms, render: 226ms)

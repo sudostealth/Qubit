@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -15,6 +15,7 @@ type JoinStep = 'pin' | 'nickname' | 'avatar'
 
 export default function JoinPage() {
   const router = useRouter()
+  const mounted = useRef(true)
   const [step, setStep] = useState<JoinStep>('pin')
   const [sessionPin, setSessionPin] = useState('')
   const [sessionId, setSessionId] = useState('')
@@ -22,6 +23,13 @@ export default function JoinPage() {
   const [avatar, setAvatar] = useState(generateRandomAvatar())
   const [isJoining, setIsJoining] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
+
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
 
   const handlePinSubmit = async (pin: string): Promise<{ success: boolean; error?: string }> => {
     try {
@@ -101,8 +109,10 @@ export default function JoinPage() {
 
     // Set timeout to reset state if taking too long (e.g. navigation hang)
     const timeoutId = setTimeout(() => {
-      setIsJoining(false)
-      setErrorMsg('Joining took too long. Please try again.')
+      if (mounted.current) {
+        setIsJoining(false)
+        setErrorMsg('Joining took too long. Please try again.')
+      }
     }, 15000)
 
     try {
@@ -114,6 +124,7 @@ export default function JoinPage() {
         : `fun-emoji:${Math.random().toString(36).substring(7)}`
 
       // Create player record
+      console.log('Creating player record...')
       const { data: player, error } = await supabase
         .from('players')
         .insert({
@@ -129,25 +140,43 @@ export default function JoinPage() {
       if (error) {
         console.error('Error creating player:', error)
         clearTimeout(timeoutId)
-        setIsJoining(false)
-
-        // Handle Unique Violation (Duplicate Nickname)
-        if (error.code === '23505') {
-            setErrorMsg(`Nickname '${nickname}' is already taken. Please go back and choose another.`)
-        } else {
-            setErrorMsg('Failed to join game. Please try again.')
+        if (mounted.current) {
+          setIsJoining(false)
+          // Handle Unique Violation (Duplicate Nickname)
+          if (error.code === '23505') {
+              setErrorMsg(`Nickname '${nickname}' is already taken. Please go back and choose another.`)
+          } else {
+              setErrorMsg('Failed to join game. Please try again.')
+          }
         }
         return
       }
 
-      // Redirect to lobby
-      router.push(`/lobby/${sessionId}?playerId=${player.id}`)
+      console.log('Player created:', player.id)
+      const targetUrl = `/lobby/${sessionId}?playerId=${player.id}`
+      console.log('Redirecting to:', targetUrl)
+
+      // Fallback navigation if router.push hangs
+      const fallbackTimer = setTimeout(() => {
+        if (mounted.current) {
+             console.warn('Router push timed out, forcing navigation')
+             window.location.assign(targetUrl)
+        }
+      }, 3000) // 3 seconds grace period for router.push
+
+      router.push(targetUrl)
+
+      // Note: We don't await router.push because it's synchronous-start but async-completion.
+      // If it completes successfully, component unmounts and fallbackTimer is irrelevant.
+      // If it hangs, fallbackTimer triggers.
 
     } catch (err) {
       console.error('Error joining game:', err)
       clearTimeout(timeoutId)
-      setIsJoining(false)
-      setErrorMsg('An unexpected error occurred.')
+      if (mounted.current) {
+        setIsJoining(false)
+        setErrorMsg('An unexpected error occurred.')
+      }
     }
   }
 
