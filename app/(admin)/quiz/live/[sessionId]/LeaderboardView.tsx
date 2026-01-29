@@ -131,11 +131,6 @@ export default function LeaderboardView({
     // Phase 3: Re-sort list
     timers.push(setTimeout(() => setPhase('SORTED'), 3000))
 
-    // Phase 4: Podium (if final)
-    if (isFinal) {
-      timers.push(setTimeout(() => setPhase('PODIUM'), 6000))
-    }
-
     return () => {
       timers.forEach(clearTimeout)
     }
@@ -286,6 +281,22 @@ export default function LeaderboardView({
           })}
         </AnimatePresence>
       </div>
+
+      {isFinal && phase === 'SORTED' && (
+        <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mt-8 flex justify-center sticky bottom-4 z-50"
+        >
+            <button
+                onClick={() => setPhase('PODIUM')}
+                className="btn btn-primary text-xl px-12 py-4 flex items-center gap-3 animate-bounce shadow-2xl border-4 border-white"
+            >
+                <Trophy className="w-8 h-8" />
+                Reveal Final Podium
+            </button>
+        </motion.div>
+      )}
     </div>
   )
 }

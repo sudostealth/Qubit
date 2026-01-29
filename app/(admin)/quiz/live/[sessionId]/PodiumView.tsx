@@ -107,14 +107,14 @@ export default function PodiumView({ players, onEndGame, sessionId, totalQuestio
                className="w-[800px] h-[800px] bg-gradient-to-r from-yellow-200/20 to-orange-200/20 rounded-full blur-3xl absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
             />
         </div>
-        <h2 className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-600 via-orange-500 to-red-600 mb-4 relative z-10">
-           Final Results
+        <h2 className="text-7xl md:text-8xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-500 via-orange-500 to-red-600 mb-4 relative z-10 drop-shadow-sm tracking-tighter">
+           CHAMPIONS
         </h2>
-        <p className="text-2xl text-gray-600 font-medium relative z-10">The champions have risen!</p>
+        <p className="text-3xl text-gray-700 font-bold relative z-10 tracking-wide uppercase">The Final Results</p>
       </motion.div>
 
       {/* Podium */}
-      <div className="flex justify-center items-end gap-4 md:gap-8 mb-20 h-80 md:h-96 perspective-1000">
+      <div className="flex justify-center items-end gap-4 md:gap-12 mb-32 h-96 md:h-[500px] perspective-1000 px-4">
         {podiumOrder.map((player, index) => {
           if (!player) return null
 
@@ -131,82 +131,94 @@ export default function PodiumView({ players, onEndGame, sessionId, totalQuestio
           return (
             <motion.div
               key={player.id}
-              initial={{ opacity: 0, y: 100, scale: 0.8 }}
+              initial={{ opacity: 0, y: 200, scale: 0.5 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               transition={{
-                delay: rank === 1 ? 0.5 : rank === 2 ? 0.2 : 0.8,
+                delay: rank === 1 ? 0.8 : rank === 2 ? 0.2 : 1.4,
                 type: 'spring',
-                stiffness: 100,
-                damping: 15
+                stiffness: 120,
+                damping: 12,
+                mass: 1.2
               }}
-              className={`flex flex-col items-center relative group ${isFirst ? 'z-20 order-2 -mt-12' : isSecond ? 'order-1' : 'order-3'}`}
+              className={`flex flex-col items-center relative group ${isFirst ? 'z-20 order-2 -mt-16' : isSecond ? 'order-1' : 'order-3'}`}
             >
-              {/* Avatar */}
-              <div className="mb-6 relative">
+              {/* Avatar & Name */}
+              <div className="mb-8 relative flex flex-col items-center">
                  {isFirst && (
                     <motion.div
-                        initial={{ scale: 0, rotate: -45 }}
-                        animate={{ scale: 1, rotate: 0 }}
-                        transition={{ delay: 1, type: "spring" }}
-                        className="absolute -top-16 left-1/2 -translate-x-1/2 z-20"
+                        initial={{ scale: 0, rotate: -45, y: 50 }}
+                        animate={{ scale: 1, rotate: 0, y: 0 }}
+                        transition={{ delay: 1.5, type: "spring", stiffness: 200 }}
+                        className="absolute -top-24 z-20"
                     >
-                        <Crown className="w-16 h-16 text-yellow-500 fill-yellow-400 drop-shadow-lg" />
+                        <Crown className="w-24 h-24 text-yellow-400 fill-yellow-300 drop-shadow-2xl filter" style={{filter: 'drop-shadow(0 10px 10px rgba(234, 179, 8, 0.5))'}} />
                     </motion.div>
                  )}
                  <motion.div
-                    whileHover={{ scale: 1.1, rotate: 5 }}
-                    className={`rounded-full p-2 shadow-2xl ${
-                    isFirst ? 'w-32 h-32 bg-gradient-to-br from-yellow-300 to-orange-500' :
-                    isSecond ? 'w-24 h-24 bg-gradient-to-br from-gray-300 to-gray-500' :
-                    'w-24 h-24 bg-gradient-to-br from-orange-300 to-red-500'
+                    whileHover={{ scale: 1.05, rotate: isFirst ? 2 : -2 }}
+                    className={`rounded-full p-2 shadow-2xl relative z-10 ${
+                    isFirst ? 'w-40 h-40 md:w-56 md:h-56 bg-gradient-to-br from-yellow-300 via-yellow-400 to-orange-500 ring-4 ring-yellow-200' :
+                    isSecond ? 'w-32 h-32 md:w-40 md:h-40 bg-gradient-to-br from-gray-300 to-gray-500 ring-4 ring-gray-200' :
+                    'w-32 h-32 md:w-40 md:h-40 bg-gradient-to-br from-orange-300 to-red-500 ring-4 ring-orange-200'
                  }`}>
-                    <div className="w-full h-full rounded-full bg-white overflow-hidden border-4 border-white">
+                    <div className="w-full h-full rounded-full bg-white overflow-hidden border-4 border-white relative">
                         <Image
                           src={avatarUrl}
                           alt={player.nickname}
-                          width={128}
-                          height={128}
+                          width={224}
+                          height={224}
                           className="w-full h-full object-cover"
                           unoptimized
                         />
                     </div>
+                    {/* Rank Badge */}
+                    <div className={`absolute -bottom-2 md:-bottom-4 left-1/2 -translate-x-1/2 w-12 h-12 md:w-16 md:h-16 rounded-full flex items-center justify-center font-black text-2xl md:text-3xl text-white shadow-xl border-4 border-white ${
+                        isFirst ? 'bg-yellow-500' : isSecond ? 'bg-gray-500' : 'bg-orange-500'
+                    }`}>
+                        {rank}
+                    </div>
                  </motion.div>
 
-                 {/* Rank Badge */}
-                 <div className={`absolute -bottom-4 left-1/2 -translate-x-1/2 w-10 h-10 rounded-full flex items-center justify-center font-black text-xl text-white shadow-lg border-2 border-white ${
-                    isFirst ? 'bg-yellow-500' : isSecond ? 'bg-gray-500' : 'bg-orange-500'
-                 }`}>
-                    {rank}
-                 </div>
+                 {/* Player Name - Floating above/below */}
+                 <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: rank === 1 ? 1.2 : rank === 2 ? 0.6 : 1.8 }}
+                    className={`mt-6 md:mt-8 text-center bg-white/90 backdrop-blur-md px-6 py-2 rounded-2xl shadow-xl border-2 border-white/50 min-w-[160px] md:min-w-[200px] transform transition-transform hover:scale-110 duration-300`}
+                 >
+                    <div className={`font-black text-xl md:text-3xl truncate ${isFirst ? 'text-yellow-600' : isSecond ? 'text-gray-600' : 'text-orange-600'}`}>
+                        {player.nickname}
+                    </div>
+                    <div className="text-lg md:text-xl font-bold text-gray-500">{player.score} pts</div>
+                 </motion.div>
               </div>
-
-              {/* Stats Card (Hover) */}
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 2 }}
-                className="absolute -bottom-24 left-1/2 -translate-x-1/2 w-48 bg-white p-3 rounded-xl shadow-xl border border-gray-100 text-center z-30"
-              >
-                 <div className="font-bold text-gray-900 mb-1">{player.nickname}</div>
-                 <div className="text-2xl font-black text-primary-600 mb-2">{player.score} pts</div>
-                 {pStats && (
-                     <div className="flex justify-center gap-3 text-xs font-bold text-gray-500">
-                        <span className="flex items-center gap-1 text-green-600"><CheckCircle className="w-3 h-3"/> {pStats.correct}</span>
-                        <span className="flex items-center gap-1 text-red-500"><XCircle className="w-3 h-3"/> {pStats.wrong}</span>
-                     </div>
-                 )}
-              </motion.div>
 
               {/* Podium Block */}
               <div
-                 className={`w-32 md:w-40 rounded-t-2xl shadow-2xl relative overflow-hidden backdrop-blur-sm ${
-                    isFirst ? 'h-64 bg-gradient-to-t from-yellow-500/90 to-yellow-300/80' :
-                    isSecond ? 'h-48 bg-gradient-to-t from-gray-400/90 to-gray-200/80' :
-                    'h-32 bg-gradient-to-t from-orange-500/90 to-orange-300/80'
+                 className={`w-32 md:w-48 rounded-t-3xl shadow-2xl relative overflow-hidden backdrop-blur-sm border-t border-white/30 ${
+                    isFirst ? 'h-80 bg-gradient-to-b from-yellow-400 via-yellow-500 to-orange-600' :
+                    isSecond ? 'h-64 bg-gradient-to-b from-gray-300 via-gray-400 to-gray-600' :
+                    'h-48 bg-gradient-to-b from-orange-300 via-orange-400 to-red-600'
                  }`}
               >
-                 <div className="absolute inset-0 bg-white/10" />
-                 <div className="absolute bottom-0 w-full h-full bg-gradient-to-t from-black/20 to-transparent" />
+                 <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+
+                 {/* Shine effect */}
+                 <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12 translate-x-[-150%] animate-[shimmer_3s_infinite]" />
+
+                 {/* Stats embedded in podium for cleaner look */}
+                 {pStats && (
+                    <div className="absolute bottom-4 left-0 w-full flex justify-center gap-2 text-white/90 text-sm font-bold">
+                        <div className="flex flex-col items-center">
+                            <CheckCircle className="w-5 h-5 drop-shadow-md" />
+                            <span>{pStats.correct}</span>
+                        </div>
+                        <div className="flex flex-col items-center">
+                            <XCircle className="w-5 h-5 drop-shadow-md" />
+                            <span>{pStats.wrong}</span>
+                        </div>
+                    </div>
+                 )}
               </div>
             </motion.div>
           )

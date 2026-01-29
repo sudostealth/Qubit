@@ -17,8 +17,38 @@ export type AvatarStyle =
 // Categories for UI grouping
 export type AvatarCategory = 'classic' | 'robot' | 'creature' | 'hero'
 
-// Placeholders for custom/hero avatars (using DiceBear styles that look "cool" as defaults)
-// In a real app, these would be URLs to custom assets
+export type Gender = 'male' | 'female' | 'neutral'
+
+// Configuration Options for Avataaars
+export const AVATAR_CONFIG = {
+  top: [
+    'shortHair', 'longHair', 'eyepatch', 'hat', 'hijab', 'turban',
+    'winterHat1', 'winterHat2', 'winterHat3', 'bob', 'bun', 'curly', 'curvy', 'dreads',
+    'frida', 'fro', 'froBand', 'miaWallace', 'shavedSides', 'straight01', 'straight02', 'straightStrand'
+  ],
+  accessories: ['none', 'kurt', 'prescription01', 'prescription02', 'round', 'sunglasses', 'wayfarers'],
+  hairColor: ['auburn', 'black', 'blonde', 'blondeGolden', 'brown', 'brownDark', 'pastelPink', 'platinum', 'red', 'silverGray'],
+  facialHair: ['none', 'beardLight', 'beardMajestic', 'beardMedium', 'moustacheFancy', 'moustacheMagnum'],
+  clothing: ['blazerAndShirt', 'blazerAndSweater', 'collarAndSweater', 'graphicShirt', 'hoodie', 'overall', 'shirtCrewNeck', 'shirtScoopNeck', 'shirtVNeck'],
+  eyes: ['closed', 'cry', 'default', 'eyeRoll', 'happy', 'hearts', 'side', 'squint', 'surprised', 'wink', 'winkWacky'],
+  eyebrow: ['default', 'angry', 'angryNatural', 'flatNatural', 'frownNatural', 'raisedExcited', 'sadConcerned', 'unibrowNatural', 'upDown', 'upDownNatural'],
+  mouth: ['default', 'concerned', 'disbelief', 'eating', 'grimace', 'sad', 'screamOpen', 'serious', 'smile', 'tongue', 'twinkle', 'vomit'],
+  skinColor: ['tanned', 'yellow', 'pale', 'light', 'brown', 'darkBrown', 'black']
+}
+
+// Filtered Lists for Gender Logic
+export const GENDER_FILTERS = {
+  male: {
+    top: ['shortHair', 'shavedSides', 'curly', 'dreads', 'fro', 'hat', 'winterHat1', 'winterHat2', 'turban', 'eyepatch'],
+    facialHair: AVATAR_CONFIG.facialHair // All beards allowed
+  },
+  female: {
+    top: ['longHair', 'bob', 'bun', 'curvy', 'frida', 'froBand', 'miaWallace', 'straight01', 'straight02', 'straightStrand', 'hijab'],
+    facialHair: ['none'] // No beards
+  }
+} as const
+
+// Placeholders for custom/hero avatars
 export const HERO_AVATARS = [
   { id: 'hero-1', seed: 'Midnight', style: 'adventurer', label: 'Ninja' },
   { id: 'hero-2', seed: 'Gizmo', style: 'adventurer', label: 'Tech Hero' },
@@ -29,10 +59,22 @@ export const HERO_AVATARS = [
 
 /**
  * Generate avatar URL from seed
+ * Supports seeds with appended query params (e.g. "myseed&top=hat")
  */
 export function getAvatarUrl(seed: string, style: AvatarStyle = 'fun-emoji'): string {
+  // Check if seed has custom options embedded
+  let baseSeed = seed
+  let options = ''
+
+  if (seed.includes('&')) {
+    const parts = seed.split('&')
+    baseSeed = parts[0]
+    // Reconstruct the rest as query params
+    options = '&' + parts.slice(1).join('&')
+  }
+
   // Handle custom type if needed, but for now we map all to DiceBear
-  return `https://api.dicebear.com/7.x/${style}/svg?seed=${encodeURIComponent(seed)}`
+  return `https://api.dicebear.com/7.x/${style}/svg?seed=${encodeURIComponent(baseSeed)}${options}`
 }
 
 /**
@@ -50,12 +92,13 @@ export function getStylesForCategory(category: AvatarCategory): AvatarStyle[] {
     case 'robot':
       return ['bottts']
     case 'creature':
-      return ['croodles'] // Abstract creatures
+      return ['croodles']
     case 'hero':
-      return ['adventurer'] // RPG/Anime style
+      return ['adventurer']
     case 'classic':
     default:
-      return ['fun-emoji', 'avataaars', 'lorelei', 'pixel-art', 'notionists']
+      // Prioritize avataaars for the main human category due to high customization
+      return ['avataaars', 'notionists', 'fun-emoji', 'lorelei', 'pixel-art']
   }
 }
 
