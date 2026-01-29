@@ -61,13 +61,18 @@ export default function JoinPage() {
     try {
       const supabase = createClient()
       
-      // Check if nickname is already taken in this session
-      const { data: existing } = await supabase
+      // Check if nickname is already taken in this session using maybeSingle to safely handle 0 results
+      const { data: existing, error } = await supabase
         .from('players')
         .select('id')
         .eq('session_id', sessionId)
         .eq('nickname', nick)
-        .single()
+        .maybeSingle()
+
+      if (error) {
+         console.error('Error checking nickname:', error)
+         // In case of error, we default to "allow" but rely on constraint later
+      }
 
       if (existing) {
         return { success: false, error: 'This nickname is already taken. Please choose another.' }
@@ -77,7 +82,8 @@ export default function JoinPage() {
       setStep('avatar')
       return { success: true }
     } catch (err) {
-      // If error is "not found", nickname is available
+      console.error('Unexpected error checking nickname:', err)
+      // Allow proceeding, backend unique constraint will catch it if it exists
       setNickname(nick)
       setStep('avatar')
       return { success: true }
@@ -124,15 +130,18 @@ export default function JoinPage() {
         console.error('Error creating player:', error)
         clearTimeout(timeoutId)
         setIsJoining(false)
-        setErrorMsg('Failed to join game. Please try again.')
+
+        // Handle Unique Violation (Duplicate Nickname)
+        if (error.code === '23505') {
+            setErrorMsg(`Nickname '${nickname}' is already taken. Please go back and choose another.`)
+        } else {
+            setErrorMsg('Failed to join game. Please try again.')
+        }
         return
       }
 
       // Redirect to lobby
       router.push(`/lobby/${sessionId}?playerId=${player.id}`)
-
-      // We don't clear timeout immediately here, as we want the "Joining..." state
-      // to persist until the page unloads. If it hangs, the timeout will reset it.
 
     } catch (err) {
       console.error('Error joining game:', err)
@@ -216,8 +225,8 @@ export default function JoinPage() {
                 animate={{ opacity: 1, y: 0 }}
                 className="p-3 bg-red-50 text-red-600 rounded-lg text-sm flex items-center gap-2"
               >
-                <AlertCircle className="w-4 h-4" />
-                {errorMsg}
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <span>{errorMsg}</span>
               </motion.div>
             )}
 
