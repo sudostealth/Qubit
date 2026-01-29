@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, AlertCircle } from 'lucide-react'
 import PinEntry from '@/components/player/PinEntry'
 import NicknameEntry from '@/components/player/NicknameEntry'
 import AvatarSelector from '@/components/player/AvatarSelector'
@@ -21,6 +21,7 @@ export default function JoinPage() {
   const [nickname, setNickname] = useState('')
   const [avatar, setAvatar] = useState(generateRandomAvatar())
   const [isJoining, setIsJoining] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
 
   const handlePinSubmit = async (pin: string): Promise<{ success: boolean; error?: string }> => {
     try {
@@ -90,6 +91,13 @@ export default function JoinPage() {
   const handleJoinGame = async () => {
     if (isJoining) return
     setIsJoining(true)
+    setErrorMsg('')
+
+    // Set timeout to reset state if taking too long (e.g. navigation hang)
+    const timeoutId = setTimeout(() => {
+      setIsJoining(false)
+      setErrorMsg('Joining took too long. Please try again.')
+    }, 15000)
 
     try {
       const supabase = createClient()
@@ -114,20 +122,23 @@ export default function JoinPage() {
 
       if (error) {
         console.error('Error creating player:', error)
+        clearTimeout(timeoutId)
         setIsJoining(false)
+        setErrorMsg('Failed to join game. Please try again.')
         return
       }
 
       // Redirect to lobby
-      try {
-        router.push(`/lobby/${sessionId}?playerId=${player.id}`)
-      } catch (navError) {
-        console.error('Navigation error:', navError)
-        setIsJoining(false)
-      }
+      router.push(`/lobby/${sessionId}?playerId=${player.id}`)
+
+      // We don't clear timeout immediately here, as we want the "Joining..." state
+      // to persist until the page unloads. If it hangs, the timeout will reset it.
+
     } catch (err) {
       console.error('Error joining game:', err)
+      clearTimeout(timeoutId)
       setIsJoining(false)
+      setErrorMsg('An unexpected error occurred.')
     }
   }
 
@@ -198,6 +209,18 @@ export default function JoinPage() {
               initialSeed={avatar.seed}
               initialStyle={avatar.style}
             />
+
+            {errorMsg && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="p-3 bg-red-50 text-red-600 rounded-lg text-sm flex items-center gap-2"
+              >
+                <AlertCircle className="w-4 h-4" />
+                {errorMsg}
+              </motion.div>
+            )}
+
             <button
               onClick={handleJoinGame}
               disabled={isJoining}
