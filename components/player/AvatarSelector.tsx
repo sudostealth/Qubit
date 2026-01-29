@@ -63,15 +63,15 @@ export default function AvatarSelector({
   const availableOptions = useMemo(() => {
     if (style !== 'avataaars') return AVATAR_CONFIG
 
-    // Clone config
-    const opts = { ...AVATAR_CONFIG }
+    // Clone config and cast to generic string arrays to allow overrides
+    const opts = { ...AVATAR_CONFIG } as Record<string, readonly string[]>
 
     // Apply gender filters
     if (gender === 'male') {
-      opts.top = [...GENDER_FILTERS.male.top]
+      opts.top = GENDER_FILTERS.male.top
     } else if (gender === 'female') {
-      opts.top = [...GENDER_FILTERS.female.top]
-      opts.facialHair = [...GENDER_FILTERS.female.facialHair]
+      opts.top = GENDER_FILTERS.female.top
+      opts.facialHair = GENDER_FILTERS.female.facialHair
     }
 
     return opts

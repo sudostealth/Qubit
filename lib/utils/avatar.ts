@@ -19,32 +19,76 @@ export type AvatarCategory = 'classic' | 'robot' | 'creature' | 'hero'
 
 export type Gender = 'male' | 'female' | 'neutral'
 
-// Configuration Options for Avataaars
+// Configuration Options for Avataaars (DiceBear 7.x / Avataaars Library Standard)
 export const AVATAR_CONFIG = {
   top: [
-    'shortHair', 'longHair', 'eyepatch', 'hat', 'hijab', 'turban',
-    'winterHat1', 'winterHat2', 'winterHat3', 'bob', 'bun', 'curly', 'curvy', 'dreads',
-    'frida', 'fro', 'froBand', 'miaWallace', 'shavedSides', 'straight01', 'straight02', 'straightStrand'
+    // Long Hair (Feminine/Neutral)
+    'LongHairBigHair', 'LongHairBob', 'LongHairBun', 'LongHairCurly', 'LongHairCurvy',
+    'LongHairDreads', 'LongHairFrida', 'LongHairFro', 'LongHairFroBand',
+    'LongHairNotTooLong', 'LongHairShavedSides', 'LongHairMiaWallace',
+    'LongHairStraight', 'LongHairStraight2', 'LongHairStraightStrand',
+    // Short Hair (Masculine/Neutral)
+    'NoHair', 'ShortHairDreads01', 'ShortHairDreads02', 'ShortHairFrizzle',
+    'ShortHairShaggyMullet', 'ShortHairShortCurly', 'ShortHairShortFlat',
+    'ShortHairShortRound', 'ShortHairShortWaved', 'ShortHairSides',
+    'ShortHairTheCaesar', 'ShortHairTheCaesarSidePart',
+    // Hats (Neutral)
+    'Eyepatch', 'Hat', 'Hijab', 'Turban',
+    'WinterHat1', 'WinterHat2', 'WinterHat3', 'WinterHat4'
   ],
-  accessories: ['none', 'kurt', 'prescription01', 'prescription02', 'round', 'sunglasses', 'wayfarers'],
-  hairColor: ['auburn', 'black', 'blonde', 'blondeGolden', 'brown', 'brownDark', 'pastelPink', 'platinum', 'red', 'silverGray'],
-  facialHair: ['none', 'beardLight', 'beardMajestic', 'beardMedium', 'moustacheFancy', 'moustacheMagnum'],
-  clothing: ['blazerAndShirt', 'blazerAndSweater', 'collarAndSweater', 'graphicShirt', 'hoodie', 'overall', 'shirtCrewNeck', 'shirtScoopNeck', 'shirtVNeck'],
-  eyes: ['closed', 'cry', 'default', 'eyeRoll', 'happy', 'hearts', 'side', 'squint', 'surprised', 'wink', 'winkWacky'],
-  eyebrow: ['default', 'angry', 'angryNatural', 'flatNatural', 'frownNatural', 'raisedExcited', 'sadConcerned', 'unibrowNatural', 'upDown', 'upDownNatural'],
-  mouth: ['default', 'concerned', 'disbelief', 'eating', 'grimace', 'sad', 'screamOpen', 'serious', 'smile', 'tongue', 'twinkle', 'vomit'],
-  skinColor: ['tanned', 'yellow', 'pale', 'light', 'brown', 'darkBrown', 'black']
-}
+  accessories: [
+    'Blank', 'Kurt', 'Prescription01', 'Prescription02', 'Round', 'Sunglasses', 'Wayfarers'
+  ],
+  hairColor: [
+    'Auburn', 'Black', 'Blonde', 'BlondeGolden', 'Brown', 'BrownDark',
+    'PastelPink', 'Blue', 'Platinum', 'Red', 'SilverGray'
+  ],
+  facialHair: [
+    'Blank', 'BeardMedium', 'BeardLight', 'BeardMajestic', 'MoustacheFancy', 'MoustacheMagnum'
+  ],
+  clothing: [
+    'BlazerShirt', 'BlazerSweater', 'CollarSweater', 'GraphicShirt', 'Hoodie',
+    'Overall', 'ShirtCrewNeck', 'ShirtScoopNeck', 'ShirtVNeck'
+  ],
+  eyes: [
+    'Close', 'Cry', 'Default', 'Dizzy', 'EyeRoll', 'Happy', 'Hearts', 'Side',
+    'Squint', 'Surprised', 'Wink', 'WinkWacky'
+  ],
+  eyebrow: [
+    'Angry', 'AngryNatural', 'Default', 'DefaultNatural', 'FlatNatural',
+    'RaisedExcited', 'RaisedExcitedNatural', 'SadConcerned', 'SadConcernedNatural',
+    'UnibrowNatural', 'UpDown', 'UpDownNatural'
+  ],
+  mouth: [
+    'Concerned', 'Default', 'Disbelief', 'Eating', 'Grimace', 'Sad',
+    'ScreamOpen', 'Serious', 'Smile', 'Tongue', 'Twinkle', 'Vomit'
+  ],
+  skinColor: [
+    'Tanned', 'Yellow', 'Pale', 'Light', 'Brown', 'DarkBrown', 'Black'
+  ]
+} as const
 
 // Filtered Lists for Gender Logic
 export const GENDER_FILTERS = {
   male: {
-    top: ['shortHair', 'shavedSides', 'curly', 'dreads', 'fro', 'hat', 'winterHat1', 'winterHat2', 'turban', 'eyepatch'],
+    top: [
+      'ShortHairDreads01', 'ShortHairDreads02', 'ShortHairFrizzle',
+      'ShortHairShaggyMullet', 'ShortHairShortCurly', 'ShortHairShortFlat',
+      'ShortHairShortRound', 'ShortHairShortWaved', 'ShortHairSides',
+      'ShortHairTheCaesar', 'ShortHairTheCaesarSidePart', 'NoHair',
+      'Eyepatch', 'Hat', 'Turban', 'WinterHat1', 'WinterHat2', 'WinterHat3'
+    ],
     facialHair: AVATAR_CONFIG.facialHair // All beards allowed
   },
   female: {
-    top: ['longHair', 'bob', 'bun', 'curvy', 'frida', 'froBand', 'miaWallace', 'straight01', 'straight02', 'straightStrand', 'hijab'],
-    facialHair: ['none'] // No beards
+    top: [
+      'LongHairBigHair', 'LongHairBob', 'LongHairBun', 'LongHairCurly', 'LongHairCurvy',
+      'LongHairDreads', 'LongHairFrida', 'LongHairFro', 'LongHairFroBand',
+      'LongHairNotTooLong', 'LongHairShavedSides', 'LongHairMiaWallace',
+      'LongHairStraight', 'LongHairStraight2', 'LongHairStraightStrand',
+      'Hijab', 'WinterHat4'
+    ],
+    facialHair: ['Blank'] // No beards
   }
 } as const
 
@@ -59,7 +103,7 @@ export const HERO_AVATARS = [
 
 /**
  * Generate avatar URL from seed
- * Supports seeds with appended query params (e.g. "myseed&top=hat")
+ * Supports seeds with appended query params (e.g. "myseed&top=Hat")
  */
 export function getAvatarUrl(seed: string, style: AvatarStyle = 'fun-emoji'): string {
   // Check if seed has custom options embedded

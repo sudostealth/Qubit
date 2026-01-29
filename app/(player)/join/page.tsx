@@ -20,6 +20,7 @@ export default function JoinPage() {
   const [sessionId, setSessionId] = useState('')
   const [nickname, setNickname] = useState('')
   const [avatar, setAvatar] = useState(generateRandomAvatar())
+  const [isJoining, setIsJoining] = useState(false)
 
   const handlePinSubmit = async (pin: string): Promise<{ success: boolean; error?: string }> => {
     try {
@@ -87,6 +88,9 @@ export default function JoinPage() {
   }
 
   const handleJoinGame = async () => {
+    if (isJoining) return
+    setIsJoining(true)
+
     try {
       const supabase = createClient()
       
@@ -105,6 +109,7 @@ export default function JoinPage() {
 
       if (error) {
         console.error('Error creating player:', error)
+        setIsJoining(false)
         return
       }
 
@@ -112,6 +117,7 @@ export default function JoinPage() {
       router.push(`/lobby/${sessionId}?playerId=${player.id}`)
     } catch (err) {
       console.error('Error joining game:', err)
+      setIsJoining(false)
     }
   }
 
@@ -184,9 +190,17 @@ export default function JoinPage() {
             />
             <button
               onClick={handleJoinGame}
-              className="btn btn-primary w-full max-w-md text-xl py-4"
+              disabled={isJoining}
+              className="btn btn-primary w-full max-w-md text-xl py-4 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-3"
             >
-              Join Lobby
+              {isJoining ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Joining...
+                </>
+              ) : (
+                'Join Lobby'
+              )}
             </button>
           </motion.div>
         )}
