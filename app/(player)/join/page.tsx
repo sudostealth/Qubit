@@ -94,13 +94,18 @@ export default function JoinPage() {
     try {
       const supabase = createClient()
       
+      // Ensure avatar data is valid
+      const avatarSeed = (avatar.style && avatar.seed)
+        ? `${avatar.style}:${avatar.seed}`
+        : `fun-emoji:${Math.random().toString(36).substring(7)}`
+
       // Create player record
       const { data: player, error } = await supabase
         .from('players')
         .insert({
           session_id: sessionId,
           nickname,
-          avatar_seed: `${avatar.style}:${avatar.seed}`,
+          avatar_seed: avatarSeed,
           score: 0,
           is_active: true,
         })
@@ -114,7 +119,12 @@ export default function JoinPage() {
       }
 
       // Redirect to lobby
-      router.push(`/lobby/${sessionId}?playerId=${player.id}`)
+      try {
+        router.push(`/lobby/${sessionId}?playerId=${player.id}`)
+      } catch (navError) {
+        console.error('Navigation error:', navError)
+        setIsJoining(false)
+      }
     } catch (err) {
       console.error('Error joining game:', err)
       setIsJoining(false)
