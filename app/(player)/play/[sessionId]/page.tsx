@@ -63,6 +63,11 @@ export default function PlayPage() {
         .eq('id', sessionId)
         .single()
 
+      if (!session) {
+        window.location.href = '/'
+        return
+      }
+
       if (session) {
         // Resume question if active
         if (session.current_question_start_time) {
