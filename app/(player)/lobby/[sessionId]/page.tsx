@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Users, Loader2, Trophy } from 'lucide-react'
@@ -44,30 +44,34 @@ export default function LobbyPage() {
 
     // Fetch initial data
     const fetchData = async () => {
-      // Get session info
-      const { data: sessionData } = await supabase
-        .from('game_sessions')
-        .select('*, quizzes(title)')
-        .eq('id', sessionId)
-        .single()
+      try {
+        // Get session info
+        const { data: sessionData } = await supabase
+          .from('game_sessions')
+          .select('*, quizzes(title)')
+          .eq('id', sessionId)
+          .single()
 
-      if (sessionData) {
-        setSession(sessionData as GameSession)
+        if (sessionData) {
+          setSession(sessionData as GameSession)
+        }
+
+        // Get players
+        const { data: playersData } = await supabase
+          .from('players')
+          .select('*')
+          .eq('session_id', sessionId)
+          .eq('is_active', true)
+          .order('joined_at', { ascending: true })
+
+        if (playersData) {
+          setPlayers(playersData)
+        }
+      } catch (err) {
+        console.error('Error loading lobby:', err)
+      } finally {
+        setLoading(false)
       }
-
-      // Get players
-      const { data: playersData } = await supabase
-        .from('players')
-        .select('*')
-        .eq('session_id', sessionId)
-        .eq('is_active', true)
-        .order('joined_at', { ascending: true })
-
-      if (playersData) {
-        setPlayers(playersData)
-      }
-
-      setLoading(false)
     }
 
     fetchData()
@@ -85,7 +89,11 @@ export default function LobbyPage() {
         },
         (payload) => {
           if (payload.eventType === 'INSERT') {
-            setPlayers((prev) => [...prev, payload.new as Player])
+            const newPlayer = payload.new as Player
+            setPlayers((prev) => {
+              if (prev.some(p => p.id === newPlayer.id)) return prev
+              return [...prev, newPlayer]
+            })
           } else if (payload.eventType === 'DELETE') {
             setPlayers((prev) => prev.filter((p) => p.id !== payload.old.id))
           } else if (payload.eventType === 'UPDATE') {
@@ -121,9 +129,37 @@ export default function LobbyPage() {
   }, [sessionId, playerId, router])
 
   const parseAvatarSeed = (seed: string): { style: AvatarStyle; seed: string } => {
-    const [style, actualSeed] = seed.split(':')
-    return { style: style as AvatarStyle, seed: actualSeed }
+    try {
+      if (!seed || typeof seed !== 'string') return { style: 'fun-emoji', seed: 'default' }
+
+      const parts = seed.split(':')
+      if (parts.length < 2) {
+        // Fallback for old/malformed seeds
+        return { style: 'fun-emoji', seed: seed || 'default' }
+      }
+      return { style: parts[0] as AvatarStyle, seed: parts[1] }
+    } catch (e) {
+      console.error('Error parsing avatar seed:', seed, e)
+      return { style: 'fun-emoji', seed: 'default' }
+    }
   }
+
+  const displayedPlayers = useMemo(() => {
+    // Show first 100 players to keep DOM lightweight
+    const slice = players.slice(0, 100)
+
+    // Ensure current player is visible even if joined late (and list is full)
+    if (playerId) {
+      const currentPlayer = players.find(p => p.id === playerId)
+      if (currentPlayer && !slice.find(p => p.id === playerId)) {
+        // Replace last item with current player or just append?
+        // Appending makes it 101 items which is fine.
+        slice.push(currentPlayer)
+      }
+    }
+
+    return slice
+  }, [players, playerId])
 
   if (loading) {
     return (
@@ -159,12 +195,17 @@ export default function LobbyPage() {
             <Users className="w-5 h-5" />
             <span className="font-semibold">{players.length} player{players.length !== 1 ? 's' : ''} joined</span>
           </div>
+          {players.length > 100 && (
+            <p className="text-xs text-gray-400 mt-1">
+              (Showing first 100 players)
+            </p>
+          )}
         </motion.div>
 
         {/* Players Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
           <AnimatePresence>
-            {players.map((player, index) => {
+            {displayedPlayers.map((player, index) => {
               const { style, seed } = parseAvatarSeed(player.avatar_seed)
               const avatarUrl = getAvatarUrl(seed, style)
               const isCurrentPlayer = player.id === playerId
@@ -178,7 +219,7 @@ export default function LobbyPage() {
                   transition={{
                     type: 'spring',
                     stiffness: 200,
-                    delay: index * 0.05,
+                    delay: Math.min(index * 0.05, 1.0), // Cap delay so 100th item doesn't take 5s
                   }}
                   className={`card-hover text-center ${
                     isCurrentPlayer ? 'ring-4 ring-primary-500' : ''

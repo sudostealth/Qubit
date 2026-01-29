@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Play, SkipForward, Trophy, Users, Eye, EyeOff, X, BarChart2, CheckCircle } from 'lucide-react'
@@ -54,80 +54,84 @@ export default function LiveGamePage() {
     if (!sessionId) return
 
     const fetchData = async () => {
-      const supabase = createClient()
+      try {
+        const supabase = createClient()
 
-      // Get session with quiz and questions
-      const { data: session } = await supabase
-        .from('game_sessions')
-        .select('*, quizzes(title, questions(*))')
-        .eq('id', sessionId)
-        .single()
+        // Get session with quiz and questions
+        const { data: session } = await supabase
+          .from('game_sessions')
+          .select('*, quizzes(title, questions(*))')
+          .eq('id', sessionId)
+          .single()
 
-      if (session && session.quizzes) {
-        setQuizTitle(session.quizzes.title)
-        const sortedQuestions = (session.quizzes.questions || []).sort(
-          (a: any, b: any) => a.question_order - b.question_order
-        )
-        setQuestions(sortedQuestions)
+        if (session && session.quizzes) {
+          setQuizTitle(session.quizzes.title)
+          const sortedQuestions = (session.quizzes.questions || []).sort(
+            (a: any, b: any) => a.question_order - b.question_order
+          )
+          setQuestions(sortedQuestions)
 
-        // Handle Resume State
-        const currentIndex = session.current_question_index || 0
-        setCurrentQuestionIndex(currentIndex)
+          // Handle Resume State
+          const currentIndex = session.current_question_index || 0
+          setCurrentQuestionIndex(currentIndex)
 
-        if (session.current_question_start_time) {
-          const currentQ = sortedQuestions[currentIndex]
-          if (currentQ) {
-            const startTime = new Date(session.current_question_start_time).getTime()
-            const now = Date.now()
-            const elapsed = Math.floor((now - startTime) / 1000)
-            const remaining = currentQ.time_limit - elapsed
+          if (session.current_question_start_time) {
+            const currentQ = sortedQuestions[currentIndex]
+            if (currentQ) {
+              const startTime = new Date(session.current_question_start_time).getTime()
+              const now = Date.now()
+              const elapsed = Math.floor((now - startTime) / 1000)
+              const remaining = currentQ.time_limit - elapsed
 
-            if (remaining > 0) {
-              // Question is active
-              setViewState('ACTIVE')
-              setTimeLeft(remaining)
-              setQuestionActive(true)
-            } else {
-              // Question finished but not closed? Or waiting for stats?
-              // If time is up, we should show stats
-              setViewState('STATS')
-              setQuestionActive(false)
-              setTimeLeft(0)
+              if (remaining > 0) {
+                // Question is active
+                setViewState('ACTIVE')
+                setTimeLeft(remaining)
+                setQuestionActive(true)
+              } else {
+                // Question finished but not closed? Or waiting for stats?
+                // If time is up, we should show stats
+                setViewState('STATS')
+                setQuestionActive(false)
+                setTimeLeft(0)
 
-              // We need to fetch stats here if we are resuming into STATS
-              const { data: answers } = await supabase
-                .from('player_answers')
-                .select('answer_index')
-                .eq('question_id', currentQ.id)
+                // We need to fetch stats here if we are resuming into STATS
+                const { data: answers } = await supabase
+                  .from('player_answers')
+                  .select('answer_index')
+                  .eq('question_id', currentQ.id)
 
-              if (answers) {
-                const stats = new Array(currentQ.options.length).fill(0)
-                answers.forEach((a: any) => {
-                  if (a.answer_index >= 0 && a.answer_index < stats.length) {
-                    stats[a.answer_index]++
-                  }
-                })
-                setAnswerStats(stats)
-                setShowStats(true)
+                if (answers) {
+                  const stats = new Array(currentQ.options.length).fill(0)
+                  answers.forEach((a: any) => {
+                    if (a.answer_index >= 0 && a.answer_index < stats.length) {
+                      stats[a.answer_index]++
+                    }
+                  })
+                  setAnswerStats(stats)
+                  setShowStats(true)
+                }
               }
             }
           }
         }
+
+        // Get players
+        const { data: playersData } = await supabase
+          .from('players')
+          .select('*')
+          .eq('session_id', sessionId)
+          .eq('is_active', true)
+          .order('score', { ascending: false })
+
+        if (playersData) {
+          setPlayers(playersData)
+        }
+      } catch (err) {
+        console.error('Error fetching game data:', err)
+      } finally {
+        setLoading(false)
       }
-
-      // Get players
-      const { data: playersData } = await supabase
-        .from('players')
-        .select('*')
-        .eq('session_id', sessionId)
-        .eq('is_active', true)
-        .order('score', { ascending: false })
-
-      if (playersData) {
-        setPlayers(playersData)
-      }
-
-      setLoading(false)
     }
 
     fetchData()
@@ -143,17 +147,26 @@ export default function LiveGamePage() {
       .on(
         'postgres_changes',
         {
-          event: 'UPDATE',
+          event: '*', // Listen to INSERT/UPDATE/DELETE
           schema: 'public',
           table: 'players',
           filter: `session_id=eq.${sessionId}`,
         },
         (payload) => {
-          setPlayers((prev) =>
-            prev
-              .map((p) => (p.id === payload.new.id ? (payload.new as Player) : p))
-              .sort((a, b) => b.score - a.score)
-          )
+          if (payload.eventType === 'INSERT') {
+             setPlayers((prev) => {
+                if (prev.some(p => p.id === payload.new.id)) return prev
+                return [...prev, payload.new as Player].sort((a, b) => b.score - a.score)
+             })
+          } else if (payload.eventType === 'UPDATE') {
+             setPlayers((prev) =>
+               prev
+                 .map((p) => (p.id === payload.new.id ? (payload.new as Player) : p))
+                 .sort((a, b) => b.score - a.score)
+             )
+          } else if (payload.eventType === 'DELETE') {
+             setPlayers((prev) => prev.filter(p => p.id !== payload.old.id))
+          }
         }
       )
       .on(
@@ -313,9 +326,20 @@ export default function LiveGamePage() {
   }
 
   const parseAvatarSeed = (seed: string): { style: AvatarStyle; seed: string } => {
-    const [style, actualSeed] = seed.split(':')
-    return { style: style as AvatarStyle, seed: actualSeed }
+    try {
+      if (!seed || typeof seed !== 'string') return { style: 'fun-emoji', seed: 'default' }
+      const parts = seed.split(':')
+      if (parts.length < 2) return { style: 'fun-emoji', seed: seed || 'default' }
+      return { style: parts[0] as AvatarStyle, seed: parts[1] }
+    } catch (e) {
+      console.error('Error parsing avatar seed:', seed)
+      return { style: 'fun-emoji', seed: 'default' }
+    }
   }
+
+  const displayedSidebarPlayers = useMemo(() => {
+    return players.slice(0, 100)
+  }, [players])
 
   if (loading) {
     return (
@@ -555,7 +579,7 @@ export default function LiveGamePage() {
                 </h3>
 
                 <div className="space-y-2 max-h-[600px] overflow-y-auto">
-                  {players.map((player) => {
+                  {displayedSidebarPlayers.map((player) => {
                     const { style, seed } = parseAvatarSeed(player.avatar_seed)
                     const avatarUrl = getAvatarUrl(seed, style)
 
@@ -585,6 +609,11 @@ export default function LiveGamePage() {
                       </div>
                     )
                   })}
+                  {players.length > 100 && (
+                    <p className="text-xs text-center text-gray-500 italic mt-2">
+                      + {players.length - 100} more...
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
